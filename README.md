@@ -1,6 +1,6 @@
-![Claude Desk 7 7](public/logo.png)
+![Claude Desk 7](public/logo.png)
 
-# 🪑 Claude Desk 7 7
+# Claude Desk 7
 
 **Web Dashboard toàn diện để quản lý, giám sát và điều khiển Claude Code.**
 

@@ -112,7 +112,7 @@ cleanupOrphans();
 server.listen(config.port, () => {
   logger.info(`
 ╔══════════════════════════════════════════════════╗
-║              Claude Desk Server                   ║
+║            Claude Desk 7 Server                   ║
 ║──────────────────────────────────────────────────║
 ║  Open:    http://localhost:${config.port}               ║
 ║  API:     http://localhost:${config.port}/api         ║

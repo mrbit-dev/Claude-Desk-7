@@ -39,7 +39,7 @@ export function Header() {
     <>
       <header className="flex h-14 items-center justify-between border-b border-claude-800 bg-claude-900/50 px-6 backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center gap-4">
-          <h1 className="text-lg font-semibold text-gray-100">Claude Desk</h1>
+          <h1 className="text-lg font-semibold text-gray-100">Claude Desk 7</h1>
         </div>
 
         <div className="flex items-center gap-3">

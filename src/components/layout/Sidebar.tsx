@@ -49,7 +49,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         {!collapsed && (
           <div className="flex items-center gap-2">
             <Bot className="h-6 w-6 text-accent" />
-            <span className="font-semibold text-gray-100">Claude Desk</span>
+            <span className="font-semibold text-gray-100">Claude Desk 7</span>
           </div>
         )}
         {collapsed && <Bot className="mx-auto h-6 w-6 text-accent" />}

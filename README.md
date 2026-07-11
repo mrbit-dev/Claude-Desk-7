@@ -1,10 +1,10 @@
-# 🪑 Claude Desk
+![Claude Desk 7 7](public/logo.png)
+
+# 🪑 Claude Desk 7 7
 
 **Web Dashboard toàn diện để quản lý, giám sát và điều khiển Claude Code.**
 
-Claude Desk là giao diện trực quan thay thế hoàn toàn cho việc dùng Claude Code qua CLI hay extension IDE. Tất cả những gì bạn cần làm với Claude Code đều có thể thao tác qua giao diện web — không cần gõ lệnh, không cần nhớ cú pháp.
-
-![Claude Desk](screenshots/01-dashboard.png)
+Claude Desk 7 là giao diện trực quan thay thế hoàn toàn cho việc dùng Claude Code qua CLI hay extension IDE. Tất cả những gì bạn cần làm với Claude Code đều có thể thao tác qua giao diện web — không cần gõ lệnh, không cần nhớ cú pháp.
 
 ---
 
@@ -89,8 +89,8 @@ npm install -g @anthropic-ai/claude-code
 ```
 Hoặc theo hướng dẫn tại [docs.anthropic.com](https://docs.anthropic.com/en/docs/claude-code/installation)
 
-### Claude Desk có chạy được trên macOS/Linux không?
-Có! Claude Desk tự động phát hiện đường dẫn Claude Code trên tất cả nền tảng.
+### Claude Desk 7 có chạy được trên macOS/Linux không?
+Có! Claude Desk 7 tự động phát hiện đường dẫn Claude Code trên tất cả nền tảng.
 
 ### Làm sao để đóng góp?
 Fork repo, tạo branch, commit và tạo Pull Request!

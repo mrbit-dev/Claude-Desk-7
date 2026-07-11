@@ -1,0 +1,53 @@
+@import "tailwindcss/base";
+@import "tailwindcss/components";
+@import "tailwindcss/utilities";
+
+:root {
+  color-scheme: dark;
+}
+
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #3b385a transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background-color: #3b385a;
+  border-radius: 3px;
+}
+
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Utility: terminal-like output */
+.terminal-output {
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Transitions for sidebar */
+.sidebar-transition {
+  transition: width 200ms ease-in-out, transform 200ms ease-in-out;
+}
+
+/* Card hover effect */
+.card-hover {
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+}
+.card-hover:hover {
+  border-color: #d4a57440;
+  box-shadow: 0 0 20px rgba(212, 165, 116, 0.08);
+}

@@ -1,0 +1,5 @@
+{
+  "name": "claude-code-dashboard-server",
+  "private": true,
+  "type": "module"
+}

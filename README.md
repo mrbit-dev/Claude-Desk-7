@@ -34,8 +34,8 @@ Claude Desk 7 là giao diện trực quan thay thế hoàn toàn cho việc dùn
 
 ### 1. Tải về
 ```bash
-git clone https://github.com/your-username/claude-desk.git
-cd claude-desk
+git clone https://github.com/mrbit-dev/Claude-Desk-7.git
+cd Claude-Desk-7
 ```
 
 Hoặc download ZIP và giải nén.

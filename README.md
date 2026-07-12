@@ -4,6 +4,8 @@
 
 **Web Dashboard toàn diện để quản lý, giám sát và điều khiển Claude Code.**
 
+🇻🇳 Tiếng Việt | [🇬🇧 English](README.en.md)
+
 Claude Desk 7 là giao diện trực quan thay thế hoàn toàn cho việc dùng Claude Code qua CLI hay extension IDE. Tất cả những gì bạn cần làm với Claude Code đều có thể thao tác qua giao diện web — không cần gõ lệnh, không cần nhớ cú pháp.
 
 ---

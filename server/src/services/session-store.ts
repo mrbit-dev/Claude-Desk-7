@@ -194,3 +194,70 @@ export function getTranscriptCount(sessionId: string): number {
   const content = readFileSync(transcriptPath, 'utf-8');
   return content.split('\n').filter(Boolean).length;
 }
+
+interface SearchResult {
+  sessionId: string;
+  project: string;
+  timestamp: number;
+  snippet: string;
+  role: string;
+}
+
+/**
+ * Full-text search across all session transcripts
+ */
+export function searchAllSessions(query: string): SearchResult[] {
+  const results: SearchResult[] = [];
+  const lowerQuery = query.toLowerCase();
+
+  try {
+    const projectsDir = config.claudeProjectsDir;
+    if (!existsSync(projectsDir)) return results;
+
+    const slugs = readdirSync(projectsDir, { withFileTypes: true })
+      .filter(d => d.isDirectory())
+      .map(d => d.name);
+
+    for (const slug of slugs) {
+      const projectDir = join(projectsDir, slug);
+      const files = readdirSync(projectDir).filter(f => f.endsWith('.jsonl'));
+
+      for (const file of files) {
+        const filePath = join(projectDir, file);
+        try {
+          const content = readFileSync(filePath, 'utf-8');
+          const lines = content.split('\n').filter(Boolean);
+
+          for (const line of lines) {
+            try {
+              const parsed = JSON.parse(line);
+              if (parsed.type !== 'user' && parsed.type !== 'assistant') continue;
+
+              const text = parsed.message?.content
+                ?.filter((c: any) => c.type === 'text')
+                .map((c: any) => c.text)
+                .join(' ') || '';
+
+              if (!text || !text.toLowerCase().includes(lowerQuery)) continue;
+
+              const sessionId = file.replace('.jsonl', '');
+              const snippet = text.length > 200 ? text.slice(0, 200) + '...' : text;
+
+              results.push({
+                sessionId,
+                project: slug,
+                timestamp: parsed.timestamp ? new Date(parsed.timestamp).getTime() : Date.now(),
+                snippet,
+                role: parsed.type === 'user' ? '👤 User' : '🤖 Claude',
+              });
+            } catch { /* skip unparseable */ }
+          }
+        } catch { /* skip unreadable */ }
+      }
+    }
+  } catch (error) {
+    logger.error({ error }, 'Search failed');
+  }
+
+  return results.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+}

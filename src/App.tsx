@@ -23,6 +23,7 @@ import Auth from './pages/Auth';
 import Launch from './pages/Launch';
 import Agents from './pages/Agents';
 import Logs from './pages/Logs';
+import SearchPage from './pages/Search';
 import NotFound from './pages/NotFound';
 
 const queryClient = new QueryClient({
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/launch" element={<Launch />} />
             <Route path="/agents" element={<Agents />} />
+            <Route path="/search" element={<SearchPage />} />
             <Route path="/logs" element={<Logs />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="*" element={<NotFound />} />

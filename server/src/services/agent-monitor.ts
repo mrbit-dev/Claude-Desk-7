@@ -1,6 +1,7 @@
 import { execSync } from 'child_process';
 import { readdirSync, readFileSync, existsSync } from 'fs';
 import { join } from 'path';
+import { homedir } from 'os';
 import { config } from '../config.js';
 import { AgentInfo, SubAgentMeta } from '../types/claude.js';
 import { broadcastEvent } from '../websocket/handler.js';
@@ -31,16 +32,31 @@ export interface AgentTreeNode {
 }
 
 /**
+ * Get entrypoint from session file ~/.claude/sessions/<pid>.json
+ * This tells us whether it's VS Code, terminal, Antigravity, etc.
+ */
+function getAgentSource(pid?: number): string {
+  if (!pid) return 'terminal';
+  try {
+    const sessionFile = join(config.claudeSessionsDir, `${pid}.json`);
+    if (existsSync(sessionFile)) {
+      const data = JSON.parse(readFileSync(sessionFile, 'utf-8'));
+      const entrypoint = data.entrypoint || '';
+      if (entrypoint.includes('vscode') || entrypoint.includes('vs-code') || entrypoint === 'claude-vscode') return 'vscode';
+      if (entrypoint.includes('antigravity') || entrypoint.includes('anti')) return 'antigravity';
+      if (entrypoint.includes('desk') || entrypoint.includes('dashboard')) return 'dashboard';
+    }
+  } catch { /* ignore */ }
+  return 'terminal';
+}
+
+/**
  * Format agent name for display
  * "manager-claude-code-9b" → "📁 Manager-claude-code"
  * "explorer-1234" → "🔍 Explorer"
  */
-function formatAgentName(name: string, cwd?: string, entrypoint?: string): { displayName: string; source: string; projectName: string } {
-  // Detect source
-  let source = 'terminal';
-  if (entrypoint?.includes('vscode')) source = 'vscode';
-  else if (entrypoint?.includes('antigravity') || entrypoint?.includes('anti')) source = 'antigravity';
-  else if (entrypoint?.includes('desk') || entrypoint?.includes('dashboard')) source = 'dashboard';
+function formatAgentName(name: string, cwd?: string, pid?: number): { displayName: string; source: string; projectName: string } {
+  const source = getAgentSource(pid);
 
   // Extract project name from cwd
   let projectName = '';
@@ -150,14 +166,21 @@ export function buildAgentTree(): AgentTreeNode[] {
     // Get last activity from transcript
     const activity = agent.sessionId ? getLastActivity(agent.sessionId, agent.cwd || '') : '';
 
-    const { displayName, source, projectName } = formatAgentName(agent.name || '', agent.cwd, (agent as any).entrypoint);
-    const sourceIcons: Record<string, string> = { vscode: '💻', terminal: '🖥️', antigravity: '🚀', dashboard: '🪟' };
-
+    let displayName = agent.name || 'Unnamed';
+    let source = 'terminal';
+    let projectName = '';
+    try {
+      const fmt = formatAgentName(agent.name || '', agent.cwd, agent.pid);
+      displayName = fmt.displayName;
+      source = fmt.source;
+      projectName = fmt.projectName;
+    } catch {}
+    const icons: Record<string, string> = { vscode: '💻', terminal: '🖥️', antigravity: '🚀', dashboard: '🪟' };
     const node: AgentTreeNode = {
       sessionId: agent.sessionId,
       name: agent.name || 'Unnamed',
       displayName,
-      source: `${sourceIcons[source] || '🖥️'} ${source}`,
+      source: `${icons[source] || '🖥️'} ${source}`,
       projectName,
       kind: agent.kind || 'interactive',
       pid: agent.pid,

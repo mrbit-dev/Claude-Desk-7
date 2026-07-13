@@ -12,6 +12,7 @@ import {
   Rocket,
   Cpu,
   Terminal,
+  Search,
   PanelLeft,
   ChevronLeft,
 } from 'lucide-react';
@@ -25,6 +26,7 @@ interface SidebarProps {
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { to: '/sessions', label: 'Sessions', icon: PlayCircle },
+  { to: '/search', label: 'Search', icon: Search },
   { to: '/launch', label: 'Launch', icon: Rocket },
   { to: '/agents', label: 'Agents', icon: Cpu },
   { to: '/mcp-servers', label: 'MCP Servers', icon: Server },

@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllSessions, readTranscript, isPidAlive, getTranscriptCount } from '../services/session-store.js';
+import { getAllSessions, readTranscript, isPidAlive, getTranscriptCount, searchAllSessions } from '../services/session-store.js';
 import { killClaudeProcess } from '../utils/process-manager.js';
 import { logger } from '../utils/logger.js';
 
@@ -77,6 +77,20 @@ router.get('/:id/transcript', (req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Failed to read transcript');
     res.status(500).json({ error: 'Failed to read transcript' });
+  }
+});
+
+// GET /api/sessions/search?q=keyword — full-text search across all transcripts
+router.get('/search', (req: Request, res: Response) => {
+  try {
+    const query = (req.query.q as string || '').trim();
+    if (!query) return res.json({ results: [], total: 0 });
+
+    const results = searchAllSessions(query);
+    res.json({ results, total: results.length });
+  } catch (error) {
+    logger.error({ error }, 'Search failed');
+    res.status(500).json({ error: 'Search failed' });
   }
 });
 

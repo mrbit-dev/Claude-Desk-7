@@ -21,6 +21,7 @@ import Plugins from './pages/Plugins';
 import Projects from './pages/Projects';
 import Auth from './pages/Auth';
 import Launch from './pages/Launch';
+import TerminalPage from './pages/Terminal';
 import Agents from './pages/Agents';
 import Logs from './pages/Logs';
 import SearchPage from './pages/Search';
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/plugins" element={<Plugins />} />
             <Route path="/projects" element={<Projects />} />
             <Route path="/launch" element={<Launch />} />
+            <Route path="/terminal" element={<TerminalPage />} />
             <Route path="/agents" element={<Agents />} />
             <Route path="/search" element={<SearchPage />} />
             <Route path="/logs" element={<Logs />} />

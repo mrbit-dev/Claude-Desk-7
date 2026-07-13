@@ -28,6 +28,7 @@ const navItems = [
   { to: '/sessions', label: 'Sessions', icon: PlayCircle },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/launch', label: 'Launch', icon: Rocket },
+  { to: '/terminal', label: 'Terminal', icon: Terminal },
   { to: '/agents', label: 'Agents', icon: Cpu },
   { to: '/mcp-servers', label: 'MCP Servers', icon: Server },
   { to: '/settings', label: 'Settings', icon: Settings },

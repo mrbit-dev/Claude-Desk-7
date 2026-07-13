@@ -5,6 +5,7 @@ import { useSessions, useStopSession, useDeleteSession } from '../hooks/useSessi
 import { SessionCardSkeleton } from '../components/shared/Skeleton';
 import { EmptyState } from '../components/shared/EmptyState';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
+import toast from 'react-hot-toast';
 import { formatRelativeTime, truncateSessionId } from '../utils/format';
 import clsx from 'clsx';
 import { SessionSummary } from '../types/claude';

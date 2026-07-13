@@ -54,5 +54,8 @@ export function useDeleteSession() {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
       queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
+    onError: (err: any) => {
+      console.error('Delete session error:', err);
+    },
   });
 }

@@ -16,6 +16,20 @@ router.get('/', (_req: Request, res: Response) => {
   }
 });
 
+// GET /api/sessions/search?q=keyword — MUST be before /:id
+router.get('/search', (req: Request, res: Response) => {
+  try {
+    const query = (req.query.q as string || '').trim();
+    if (!query) return res.json({ results: [], total: 0 });
+
+    const results = searchAllSessions(query);
+    res.json({ results, total: results.length });
+  } catch (error) {
+    logger.error({ error }, 'Search failed');
+    res.status(500).json({ error: 'Search failed' });
+  }
+});
+
 // GET /api/sessions/:id
 router.get('/:id', (req: Request, res: Response) => {
   try {
@@ -77,20 +91,6 @@ router.get('/:id/transcript', (req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Failed to read transcript');
     res.status(500).json({ error: 'Failed to read transcript' });
-  }
-});
-
-// GET /api/sessions/search?q=keyword — full-text search across all transcripts
-router.get('/search', (req: Request, res: Response) => {
-  try {
-    const query = (req.query.q as string || '').trim();
-    if (!query) return res.json({ results: [], total: 0 });
-
-    const results = searchAllSessions(query);
-    res.json({ results, total: results.length });
-  } catch (error) {
-    logger.error({ error }, 'Search failed');
-    res.status(500).json({ error: 'Search failed' });
   }
 });
 

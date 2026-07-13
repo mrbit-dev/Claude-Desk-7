@@ -32,19 +32,32 @@ export default function TerminalPage() {
   // WS subscriptions
   useEffect(() => {
     const unsubOutput = subscribe('launch:output', (event: any) => {
-      setLines(prev => [...prev, { id: uuidv4(), text: event.text, type: 'output' }]);
+      let text = event.text || '';
+      // Try to parse JSON and extract the actual response text
+      try {
+        const parsed = JSON.parse(text);
+        if (parsed.result) {
+          text = parsed.result;
+        } else if (parsed.text) {
+          text = parsed.text;
+        } else if (parsed.message?.content?.[0]?.text) {
+          text = parsed.message.content[0].text;
+        }
+        // Skip JSON noise
+        if (text.startsWith('{') || text.startsWith('[')) return;
+      } catch { /* not JSON, show as-is */ }
+      if (text.trim()) {
+        setLines(prev => [...prev, { id: uuidv4(), text, type: 'output' }]);
+      }
     });
     const unsubDone = subscribe('launch:done', (event: any) => {
-      setLines(prev => [...prev, {
-        id: uuidv4(),
-        text: `\n✓ Session completed (exit code: ${event.exitCode}, duration: ${(event.duration / 1000).toFixed(1)}s)`,
-        type: 'system',
-      }]);
+      const text = event.result || `\nDone (${(event.duration / 1000).toFixed(1)}s)`;
+      setLines(prev => [...prev, { id: uuidv4(), text, type: 'system' }]);
       setStatus('done');
       setInput('');
     });
     const unsubError = subscribe('launch:error', (event: any) => {
-      setLines(prev => [...prev, { id: uuidv4(), text: `✗ Error: ${event.error}`, type: 'error' }]);
+      setLines(prev => [...prev, { id: uuidv4(), text: event.error, type: 'error' }]);
       setStatus('error');
     });
 

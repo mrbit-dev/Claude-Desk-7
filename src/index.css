@@ -38,6 +38,12 @@ body {
   line-height: 1.5;
 }
 
+/* Agent flow shimmer animation */
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* Transitions for sidebar */
 .sidebar-transition {
   transition: width 200ms ease-in-out, transform 200ms ease-in-out;

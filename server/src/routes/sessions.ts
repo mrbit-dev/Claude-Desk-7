@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllSessions, readTranscript, isPidAlive, getTranscriptCount, searchAllSessions } from '../services/session-store.js';
+import { getAllSessions, readTranscript, isPidAlive, getTranscriptCount, searchAllSessions, removeSession } from '../services/session-store.js';
 import { killClaudeProcess } from '../utils/process-manager.js';
 import { logger } from '../utils/logger.js';
 
@@ -50,9 +50,9 @@ router.get('/:id', (req: Request, res: Response) => {
 router.delete('/:id', (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    // Kill process if running
     killClaudeProcess(id);
-    res.json({ deleted: true, sessionId: id });
+    const removed = removeSession(id);
+    res.json({ deleted: removed, sessionId: id });
   } catch (error) {
     logger.error({ error }, 'Failed to delete session');
     res.status(500).json({ error: 'Failed to delete session' });

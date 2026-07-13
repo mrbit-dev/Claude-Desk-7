@@ -1,4 +1,4 @@
-import { existsSync, readFileSync } from 'fs';
+import { existsSync, readFileSync, unlinkSync, rmSync } from 'fs';
 import { readdirSync } from 'fs';
 import { join, parse as parsePath } from 'path';
 import { config } from '../config.js';
@@ -295,4 +295,53 @@ export function searchAllSessions(query: string): SearchResult[] {
   }
 
   return results.sort((a, b) => b.timestamp - a.timestamp).slice(0, 100);
+}
+
+/**
+ * Remove a session: delete its transcript file and session file.
+ */
+export function removeSession(sessionId: string): boolean {
+  let removed = false;
+
+  // Remove transcript from project directories
+  try {
+    if (existsSync(config.claudeProjectsDir)) {
+      const slugs = readdirSync(config.claudeProjectsDir, { withFileTypes: true })
+        .filter(d => d.isDirectory()).map(d => d.name);
+      for (const slug of slugs) {
+        const projectDir = join(config.claudeProjectsDir, slug);
+        const file = join(projectDir, `${sessionId}.jsonl`);
+        if (existsSync(file)) {
+          unlinkSync(file);
+          removed = true;
+        }
+        // Remove subagent directory
+        const subDir = join(projectDir, sessionId);
+        if (existsSync(subDir)) {
+          rmSync(subDir, { recursive: true, force: true });
+          removed = true;
+        }
+      }
+    }
+  } catch (error) {
+    logger.error({ error, sessionId }, 'Failed to remove session transcript');
+  }
+
+  // Remove session file from ~/.claude/sessions/
+  try {
+    const sessionFiles = readdirSync(config.claudeSessionsDir);
+    for (const file of sessionFiles) {
+      try {
+        const content = readFileSync(join(config.claudeSessionsDir, file), 'utf-8');
+        if (content.includes(sessionId)) {
+          unlinkSync(join(config.claudeSessionsDir, file));
+          removed = true;
+        }
+      } catch {}
+    }
+  } catch (error) {
+    logger.error({ error, sessionId }, 'Failed to remove session file');
+  }
+
+  return removed;
 }

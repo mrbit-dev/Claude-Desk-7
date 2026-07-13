@@ -66,7 +66,7 @@ export function MessageBubble({ role, content: rawContent, timestamp }: MessageB
 
       case 'tool_result':
         return (
-          <ToolResultBlock key={i} content={block.content} isError={block.is_error} />
+          <ToolResultBlock key={i} content={block.content} isError={(block as any).is_error} />
         );
 
       case 'image':

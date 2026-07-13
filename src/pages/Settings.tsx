@@ -27,14 +27,15 @@ export default function Settings() {
 
   useEffect(() => {
     if (settings) {
+      const s = settings as any;
       setModel(settings.model || '');
       setEffort(settings.effortLevel || '');
       setTheme(settings.theme || '');
-      setLogLevel(settings.logLevel || '');
-      setCorsOrigins(settings.allowedTools?.join(', ') || '');
-      setVerifyModel(settings.verifyModel || '');
-      setSafeMode(settings.safeMode ?? false);
-      setVerbose(settings.verbose ?? false);
+      setLogLevel(s.logLevel || '');
+      setCorsOrigins(s.allowedTools?.join(', ') || '');
+      setVerifyModel(s.verifyModel || '');
+      setSafeMode(s.safeMode ?? false);
+      setVerbose(s.verbose ?? false);
       setEnvVars(
         Object.entries(settings.env || {}).map(([key, value]) => ({ key, value }))
       );

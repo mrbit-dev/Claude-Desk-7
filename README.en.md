@@ -42,9 +42,13 @@ cd Claude-Desk-7
 
 Or download the ZIP and extract.
 
-### 2. Setup & Run (1 command)
+### 2. Run (Windows)
+Open the folder and double-click **`start.bat`** — automatically installs + builds + runs.
+
+### 3. Setup & Run via CLI
 ```bash
-npm run setup
+npm install
+npm run build
 npm start
 ```
 
@@ -57,6 +61,11 @@ npm run dev
 ```
 
 Open browser: **http://localhost:5173**
+
+### 4. Run 24/7 Background (Windows)
+Double-click **`start.bat`** — the server runs minimized in the background.
+
+To stop: double-click **`stop.bat`**
 
 ---
 

@@ -42,21 +42,35 @@ cd Claude-Desk-7
 
 Hoặc download ZIP và giải nén.
 
-### 2. Cài đặt & Chạy (1 lệnh)
+### 2. Chạy (Windows)
+Mở thư mục, double-click **`start.bat**` — tự động cài đặt + build + chạy.
+
+### 3. Cài đặt & Chạy bằng lệnh
 ```bash
-npm run setup
+npm install
+npm run build
 npm start
 ```
 
 Mở trình duyệt: **http://localhost:3712**
 
-### Hoặc nếu muốn chạy nhanh (dev mode):
+### Hoặc chạy dev mode (hot-reload):
 ```bash
 npm install
 npm run dev
 ```
 
-Mở trình duyệt: **http://localhost:5173** (có hot-reload)
+Mở trình duyệt: **http://localhost:5173**
+
+### 4. Chạy nền 24/7 (Windows)
+Mở thư mục, double-click **`start.bat`** — server chạy ẩn dưới taskbar.
+
+Để tắt: double-click **`stop.bat`**
+
+> 💡 Hoặc dùng **PowerShell** chạy ẩn:
+> ```powershell
+> Start-Process -WindowStyle Hidden -FilePath "npx" -ArgumentList "tsx server/src/index.ts"
+> ```
 
 ---
 

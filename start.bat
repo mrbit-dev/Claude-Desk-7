@@ -35,4 +35,4 @@ echo.
 echo   Open: http://localhost:3712
 echo   Stop: stop.bat
 echo.
-start /B /WAIT npx tsx server\src\index.ts
+start /B /WAIT node server\dist\index.js

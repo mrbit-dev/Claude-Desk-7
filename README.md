@@ -62,14 +62,30 @@ npm run dev
 
 Mở trình duyệt: **http://localhost:5173**
 
-### 4. Chạy nền 24/7 (Windows)
-Mở thư mục, double-click **`start.bat`** — server chạy ẩn dưới taskbar.
+### 4. Chạy nền 24/7
 
-Để tắt: double-click **`stop.bat`**
+**Windows**: Double-click **`start.bat`** — server chạy ẩn. Tắt bằng **`stop.bat`**
 
-> 💡 Hoặc dùng **PowerShell** chạy ẩn:
-> ```powershell
-> Start-Process -WindowStyle Hidden -FilePath "npx" -ArgumentList "tsx server/src/index.ts"
+**Linux / macOS / VPS**:
+```bash
+# Cấp quyền chạy
+chmod +x start.sh stop.sh
+
+# Chạy nền (background)
+./start.sh
+
+# Xem logs
+tail -f .claude-desk.log
+
+# Tắt
+./stop.sh
+```
+
+> **Hoặc chạy thủ công (mọi nền tảng):**
+> ```bash
+> npm run build
+> npm start &
+> # Tắt: kill PID
 > ```
 
 ---

@@ -52,24 +52,24 @@ export function subscribeLogs(callback: LogCallback): () => void {
 }
 
 // Tự động ghi log khi server ghi log qua pino
-const originalInfo = logger.info.bind(logger);
-const originalWarn = logger.warn.bind(logger);
-const originalError = logger.error.bind(logger);
+const originalInfo = logger.info.bind(logger) as (...args: any[]) => void;
+const originalWarn = logger.warn.bind(logger) as (...args: any[]) => void;
+const originalError = logger.error.bind(logger) as (...args: any[]) => void;
 
 logger.info = ((...args: any[]) => {
   originalInfo(...args);
-  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const msg = args.map((a: any) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
   addServerLog('info', msg);
 }) as any;
 
 logger.warn = ((...args: any[]) => {
   originalWarn(...args);
-  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const msg = args.map((a: any) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
   addServerLog('warn', msg);
 }) as any;
 
 logger.error = ((...args: any[]) => {
   originalError(...args);
-  const msg = args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
+  const msg = args.map((a: any) => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ');
   addServerLog('error', msg);
 }) as any;

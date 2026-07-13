@@ -89,7 +89,7 @@ export async function healthCheckMCPServer(name: string): Promise<{ alive: boole
   if (!server) return { alive: false, error: 'Server not found' };
 
   return new Promise((resolve) => {
-    const child = spawn(cmd, [...args, ...server.args], {
+    const child = spawn(server.command, server.args, {
       windowsHide: true,
       stdio: 'ignore',
       env: { ...process.env, ...server.env },

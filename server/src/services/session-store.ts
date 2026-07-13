@@ -102,16 +102,51 @@ export function getAllSessions(): SessionSummary[] {
     }
   }
 
-  // Cross-reference with project sessions for transcript availability
-  for (const [sessionId, summary] of summaryMap) {
-    const projectSlug = cwdToProjectSlug(summary.cwd);
-    if (projectMap.has(projectSlug)) {
-      const sessions = projectMap.get(projectSlug)!;
-      if (!sessions.includes(sessionId)) {
-        // Might be in history but no transcript
+  // Scan project directories for sessions not in history/active (e.g. from Launch/Terminal)
+  try {
+    for (const [slug, sessionIds] of projectMap) {
+      for (const sessionId of sessionIds) {
+        if (summaryMap.has(sessionId)) continue;
+        let display = '';
+        let startedAt = 0;
+        const transcriptPath = join(config.claudeProjectsDir, slug, `${sessionId}.jsonl`);
+        if (existsSync(transcriptPath)) {
+          try {
+            const content = readFileSync(transcriptPath, 'utf-8');
+            const lines = content.split('\n').filter(Boolean);
+            // Get timestamp from first line
+            if (lines.length > 0) {
+              try { const first = JSON.parse(lines[0]); startedAt = first.timestamp ? new Date(first.timestamp).getTime() : Date.now(); } catch {}
+            }
+            // Find title
+            const titleLine = lines.find(l => l.includes('ai-title'));
+            if (titleLine) { try { const p = JSON.parse(titleLine); display = p.title || ''; } catch {} }
+            // Find first user message as fallback
+            if (!display) {
+              for (const line of lines) {
+                try {
+                  const p = JSON.parse(line);
+                  if (p.type === 'user') {
+                    const text = p.message?.content?.filter((c: any) => c.type === 'text').map((c: any) => c.text).join(' ') || '';
+                    if (text) { display = text.slice(0, 80); break; }
+                  }
+                } catch {}
+              }
+            }
+          } catch {}
+        }
+        summaryMap.set(sessionId, {
+          sessionId,
+          cwd: slug,
+          kind: 'interactive',
+          status: 'completed',
+          display,
+          project: slug,
+          startedAt,
+        });
       }
     }
-  }
+  } catch { /* ignore */ }
 
   return Array.from(summaryMap.values())
     .sort((a, b) => b.startedAt - a.startedAt);

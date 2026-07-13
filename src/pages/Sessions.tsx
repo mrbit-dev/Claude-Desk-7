@@ -204,6 +204,7 @@ export default function Sessions() {
           if (confirmDelete) {
             deleteSession.mutate(confirmDelete);
             setConfirmDelete(null);
+            toast.success('Deleted session');
           }
         }}
         onCancel={() => setConfirmDelete(null)}

@@ -40,6 +40,7 @@ export function useStopSession() {
       api.post(`/sessions/${encodeURIComponent(sessionId)}/stop`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }
@@ -51,6 +52,7 @@ export function useDeleteSession() {
       api.delete(`/sessions/${encodeURIComponent(sessionId)}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['sessions'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] });
     },
   });
 }

@@ -12,6 +12,9 @@ import clsx from 'clsx';
 interface AgentTreeNode {
   sessionId: string;
   name: string;
+  displayName?: string;
+  source?: string;
+  projectName?: string;
   kind: string;
   pid?: number;
   cwd?: string;
@@ -30,10 +33,11 @@ function AgentFlowTree({ node, depth = 0 }: { node: AgentTreeNode; depth?: numbe
 
   return (
     <AgentFlowCard
-      name={node.name || 'Unnamed'}
+      name={node.displayName || node.name || 'Unnamed'}
       kind={node.kind || 'interactive'}
       status={status}
       description={node.description || undefined}
+      source={node.source}
       progress={progress}
       isMain={isMain}
     >
@@ -152,9 +156,10 @@ export default function Agents() {
                 <Bot className="h-5 w-5 text-green-400 mt-0.5" />
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-medium text-gray-200">{agent.name}</span>
+                    <span className="text-sm font-medium text-gray-200">{agent.displayName || agent.name}</span>
                     <span className="rounded bg-green-900/30 px-1.5 py-0.5 text-[10px] font-medium text-green-400">MAIN</span>
                     <span className="text-[10px] text-gray-500 font-mono">PID: {agent.pid}</span>
+                    {agent.source && <span className="text-[10px] text-gray-600">{agent.source}</span>}
                   </div>
                   {agent.description && (
                     <p className="mt-1 text-xs text-gray-500">{agent.description}</p>
@@ -193,7 +198,8 @@ export default function Agents() {
                     <Bot className="h-5 w-5 text-green-400" />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-200 truncate">{agent.name}</p>
+                    <p className="text-sm font-medium text-gray-200 truncate">{agent.displayName || agent.name}</p>
+                    {agent.source && <p className="text-[10px] text-gray-600">{agent.source}</p>}
                     <p className="text-xs text-gray-500 font-mono">PID: {agent.pid}</p>
                   </div>
                 </div>

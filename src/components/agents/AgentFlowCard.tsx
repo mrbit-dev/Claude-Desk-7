@@ -7,6 +7,7 @@ interface AgentFlowCardProps {
   kind: string;
   status: 'running' | 'completed' | 'error' | 'pending';
   description?: string;
+  source?: string;
   progress?: number; // 0-100
   isMain?: boolean;
   children?: React.ReactNode;
@@ -17,7 +18,7 @@ interface AgentFlowCardProps {
  * Agent Flow Card — hiển thị agent với hiệu ứng glow, progress, animation
  */
 export function AgentFlowCard({
-  name, kind, status, description, progress = 0, isMain = false, children, onExpand,
+  name, kind, status, description, source, progress = 0, isMain = false, children, onExpand,
 }: AgentFlowCardProps) {
   const [glowIntensity, setGlowIntensity] = useState(0);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -128,6 +129,11 @@ export function AgentFlowCard({
                   <span className="text-[10px] text-gray-600 bg-claude-800/50 px-1.5 py-0.5 rounded font-mono">
                     {kind}
                   </span>
+                  {source && (
+                    <span className="text-[10px] text-gray-600 bg-claude-800/30 px-2 py-0.5 rounded">
+                      {source}
+                    </span>
+                  )}
                 </div>
 
                 {/* Current activity with streaming effect */}

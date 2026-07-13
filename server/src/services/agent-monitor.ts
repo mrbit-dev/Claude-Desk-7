@@ -22,6 +22,48 @@ export interface AgentTreeNode {
   description?: string;
   spawnDepth?: number;
   children: AgentTreeNode[];
+  /** Display-friendly name */
+  displayName?: string;
+  /** Where this agent came from: vscode, terminal, antigravity, dashboard */
+  source?: string;
+  /** Project folder name (short) */
+  projectName?: string;
+}
+
+/**
+ * Format agent name for display
+ * "manager-claude-code-9b" → "📁 Manager-claude-code"
+ * "explorer-1234" → "🔍 Explorer"
+ */
+function formatAgentName(name: string, cwd?: string, entrypoint?: string): { displayName: string; source: string; projectName: string } {
+  // Detect source
+  let source = 'terminal';
+  if (entrypoint?.includes('vscode')) source = 'vscode';
+  else if (entrypoint?.includes('antigravity') || entrypoint?.includes('anti')) source = 'antigravity';
+  else if (entrypoint?.includes('desk') || entrypoint?.includes('dashboard')) source = 'dashboard';
+
+  // Extract project name from cwd
+  let projectName = '';
+  if (cwd) {
+    const parts = cwd.replace(/\\/g, '/').split('/').filter(Boolean);
+    projectName = parts[parts.length - 1] || '';
+  }
+
+  // Format display name
+  let displayName = name || 'Unnamed';
+  // Remove the random suffix like "-9b", "-05", "-89"
+  displayName = displayName.replace(/[-\s][a-z0-9]{2,4}$/, '');
+  // Capitalize and clean
+  displayName = displayName
+    .replace(/-/g, ' ')
+    .replace(/\b\w/g, c => c.toUpperCase());
+
+  // If it still looks like a slug, use project name instead
+  if (displayName.includes('Manager') || displayName.includes('Claude') || displayName.length > 20) {
+    displayName = projectName || displayName;
+  }
+
+  return { displayName, source, projectName };
 }
 
 /**
@@ -108,9 +150,15 @@ export function buildAgentTree(): AgentTreeNode[] {
     // Get last activity from transcript
     const activity = agent.sessionId ? getLastActivity(agent.sessionId, agent.cwd || '') : '';
 
+    const { displayName, source, projectName } = formatAgentName(agent.name || '', agent.cwd, (agent as any).entrypoint);
+    const sourceIcons: Record<string, string> = { vscode: '💻', terminal: '🖥️', antigravity: '🚀', dashboard: '🪟' };
+
     const node: AgentTreeNode = {
       sessionId: agent.sessionId,
       name: agent.name || 'Unnamed',
+      displayName,
+      source: `${sourceIcons[source] || '🖥️'} ${source}`,
+      projectName,
       kind: agent.kind || 'interactive',
       pid: agent.pid,
       cwd: agent.cwd,

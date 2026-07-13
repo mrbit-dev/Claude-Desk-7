@@ -35,70 +35,46 @@ export default function SessionDetail() {
     }> = [];
 
     for (const line of transcript.lines) {
-      if (line.type === 'user' && line.message?.content) {
-        for (const block of line.message.content) {
-          if (block.type === 'text') {
-            items.push({
-              id: line.uuid,
-              type: 'user',
-              role: 'User',
-              text: block.text,
-              timestamp: line.timestamp,
-            });
+      // Normalize content to array
+      let contentArr: any[] = [];
+      if (Array.isArray(line.message?.content)) {
+        contentArr = line.message.content;
+      } else if (typeof line.message?.content === 'string') {
+        contentArr = [{ type: 'text', text: line.message.content }];
+      } else if (line.message?.content && typeof line.message.content === 'object') {
+        contentArr = [line.message.content];
+      }
+
+      if (line.type === 'user' || line.message?.role === 'user') {
+        for (const block of contentArr) {
+          const text = block.text || (typeof block === 'string' ? block : '');
+          if (text) {
+            items.push({ id: line.uuid, type: 'user', role: 'User', text, timestamp: line.timestamp });
           }
         }
       }
 
-      if (line.type === 'assistant' && line.message?.content) {
+      if (line.type === 'assistant' || line.message?.role === 'assistant') {
         let textParts: string[] = [];
         let thinkingText = '';
 
-        for (const block of line.message.content) {
-          if (block.type === 'text') textParts.push(block.text);
+        for (const block of contentArr) {
+          if (block.type === 'text' && block.text) textParts.push(block.text);
           if (block.type === 'thinking') thinkingText = block.thinking;
           if (block.type === 'tool_use') {
-            // Flush accumulated text
             if (textParts.length > 0) {
-              items.push({
-                id: line.uuid + '-text',
-                type: 'assistant',
-                role: 'Claude',
-                text: textParts.join('\n\n'),
-                timestamp: line.timestamp,
-                thinking: thinkingText,
-              });
-              textParts = [];
-              thinkingText = '';
+              items.push({ id: line.uuid + '-t', type: 'assistant', role: 'Claude', text: textParts.join('\n\n'), timestamp: line.timestamp, thinking: thinkingText });
+              textParts = []; thinkingText = '';
             }
-            items.push({
-              id: block.id || line.uuid + '-tool',
-              type: 'tool',
-              role: 'Claude',
-              toolName: block.name,
-              toolInput: block.input,
-              timestamp: line.timestamp,
-            });
+            items.push({ id: block.id || line.uuid + '-tool', type: 'tool', role: 'Claude', toolName: block.name, toolInput: block.input, timestamp: line.timestamp });
           }
           if (block.type === 'tool_result') {
-            items.push({
-              id: line.uuid + '-result',
-              type: 'result',
-              toolResult: typeof block.content === 'string' ? block.content.slice(0, 500) : JSON.stringify(block.content).slice(0, 500),
-              isError: (block as any).is_error,
-              timestamp: line.timestamp,
-            });
+            const content = typeof block.content === 'string' ? block.content.slice(0, 500) : JSON.stringify(block.content).slice(0, 500);
+            items.push({ id: line.uuid + '-r', type: 'result', toolResult: content, isError: (block as any).is_error, timestamp: line.timestamp });
           }
         }
-        // Remaining text
         if (textParts.length > 0) {
-          items.push({
-            id: line.uuid + '-text-end',
-            type: 'assistant',
-            role: 'Claude',
-            text: textParts.join('\n\n'),
-            timestamp: line.timestamp,
-            thinking: thinkingText,
-          });
+          items.push({ id: line.uuid + '-end', type: 'assistant', role: 'Claude', text: textParts.join('\n\n'), timestamp: line.timestamp, thinking: thinkingText });
         }
       }
     }

@@ -1,16 +1,61 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
+import { AnimatePresence, motion } from 'framer-motion';
 import { AppShell } from './components/layout/AppShell';
 import { ErrorBoundary } from './components/shared/ErrorBoundary';
 import { useRealtimeInvalidation } from './hooks/useRealtime';
 import { useEffect } from 'react';
+import { useUIStore } from './store/uiStore';
 
 /** Component that sets up real-time WebSocket invalidation */
 function RealtimeBridge() {
   useRealtimeInvalidation();
   return null;
 }
+
+/** Page wrapper for animated transitions */
+function PageTransition({ children }: { children: React.ReactNode }) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -8 }}
+      transition={{ duration: 0.2, ease: 'easeOut' }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/** Animated routes with exit animations */
+function AnimatedRoutes() {
+  const location = useLocation();
+
+  return (
+    <AnimatePresence mode="wait">
+      <Routes location={location} key={location.pathname}>
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/dashboard" element={<PageTransition><Dashboard /></PageTransition>} />
+        <Route path="/sessions" element={<PageTransition><Sessions /></PageTransition>} />
+        <Route path="/sessions/:id" element={<PageTransition><SessionDetail /></PageTransition>} />
+        <Route path="/mcp-servers" element={<PageTransition><MCPs /></PageTransition>} />
+        <Route path="/settings" element={<PageTransition><Settings /></PageTransition>} />
+        <Route path="/skills" element={<PageTransition><Skills /></PageTransition>} />
+        <Route path="/plugins" element={<PageTransition><Plugins /></PageTransition>} />
+        <Route path="/projects" element={<PageTransition><Projects /></PageTransition>} />
+        <Route path="/launch" element={<PageTransition><Launch /></PageTransition>} />
+        <Route path="/terminal" element={<PageTransition><TerminalPage /></PageTransition>} />
+        <Route path="/agents" element={<PageTransition><Agents /></PageTransition>} />
+        <Route path="/search" element={<PageTransition><SearchPage /></PageTransition>} />
+        <Route path="/logs" element={<PageTransition><Logs /></PageTransition>} />
+        <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
+        <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
+      </Routes>
+    </AnimatePresence>
+  );
+}
+
 import Dashboard from './pages/Dashboard';
 import Sessions from './pages/Sessions';
 import SessionDetail from './pages/SessionDetail';
@@ -39,6 +84,9 @@ const queryClient = new QueryClient({
 });
 
 export default function App() {
+  const theme = useUIStore((s) => s.theme);
+  const isLight = theme === 'light';
+
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
@@ -48,33 +96,16 @@ export default function App() {
             position="bottom-right"
             toastOptions={{
               style: {
-                background: '#1d1c2e',
-                color: '#e2e0e8',
-                border: '1px solid #3b385a',
+                background: isLight ? '#ffffff' : '#1d1c2e',
+                color: isLight ? '#141223' : '#e2e0e8',
+                border: isLight ? '1px solid #dcdae6' : '1px solid #3b385a',
               },
             }}
           />
           <AppShell>
-            <Routes>
-            <Route path="/" element={<Navigate to="/dashboard" replace />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/sessions" element={<Sessions />} />
-            <Route path="/sessions/:id" element={<SessionDetail />} />
-            <Route path="/mcp-servers" element={<MCPs />} />
-            <Route path="/settings" element={<Settings />} />
-            <Route path="/skills" element={<Skills />} />
-            <Route path="/plugins" element={<Plugins />} />
-            <Route path="/projects" element={<Projects />} />
-            <Route path="/launch" element={<Launch />} />
-            <Route path="/terminal" element={<TerminalPage />} />
-            <Route path="/agents" element={<Agents />} />
-            <Route path="/search" element={<SearchPage />} />
-            <Route path="/logs" element={<Logs />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </AppShell>
-      </ErrorBoundary>
+            <AnimatedRoutes />
+          </AppShell>
+        </ErrorBoundary>
       </BrowserRouter>
     </QueryClientProvider>
   );

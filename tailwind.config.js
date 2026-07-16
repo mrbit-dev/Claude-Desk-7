@@ -6,22 +6,22 @@ export default {
     extend: {
       colors: {
         claude: {
-          50: '#f0f0f3',
-          100: '#d9d8e2',
-          200: '#b3b1c5',
-          300: '#8d8aa8',
-          400: '#67638b',
-          500: '#4a4670',
-          600: '#3b385a',
-          700: '#2c2a44',
-          800: '#1d1c2e',
-          900: '#0e0e18',
-          950: '#07070d',
+          50: 'rgb(var(--claude-50) / <alpha-value>)',
+          100: 'rgb(var(--claude-100) / <alpha-value>)',
+          200: 'rgb(var(--claude-200) / <alpha-value>)',
+          300: 'rgb(var(--claude-300) / <alpha-value>)',
+          400: 'rgb(var(--claude-400) / <alpha-value>)',
+          500: 'rgb(var(--claude-500) / <alpha-value>)',
+          600: 'rgb(var(--claude-600) / <alpha-value>)',
+          700: 'rgb(var(--claude-700) / <alpha-value>)',
+          800: 'rgb(var(--claude-800) / <alpha-value>)',
+          900: 'rgb(var(--claude-900) / <alpha-value>)',
+          950: 'rgb(var(--claude-950) / <alpha-value>)',
         },
         accent: {
-          DEFAULT: '#d4a574',
-          light: '#e0bc94',
-          dark: '#c08e54',
+          DEFAULT: 'rgb(var(--accent) / <alpha-value>)',
+          light: 'rgb(var(--accent-light) / <alpha-value>)',
+          dark: 'rgb(var(--accent-dark) / <alpha-value>)',
         },
       },
       fontFamily: {
@@ -31,4 +31,4 @@ export default {
     },
   },
   plugins: [],
-}
+};

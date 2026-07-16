@@ -2,13 +2,78 @@
 @import "tailwindcss/components";
 @import "tailwindcss/utilities";
 
+/* ======================= */
+/*  CSS VARIABLES — THEMES */
+/* ======================= */
+
 :root {
   color-scheme: dark;
 }
 
+/* ---- Dark theme (default) ---- */
+.dark {
+  --claude-50: 240 240 243;
+  --claude-100: 217 216 226;
+  --claude-200: 179 177 197;
+  --claude-300: 141 138 168;
+  --claude-400: 103 99 139;
+  --claude-500: 74 70 112;
+  --claude-600: 59 56 90;
+  --claude-700: 44 42 68;
+  --claude-800: 29 28 46;
+  --claude-900: 14 14 24;
+  --claude-950: 7 7 13;
+  --accent: 212 165 116;
+  --accent-light: 224 188 148;
+  --accent-dark: 192 142 84;
+}
+
+/* ---- Light theme ---- */
+.light {
+  --claude-50: 7 7 13;
+  --claude-100: 14 14 24;
+  --claude-200: 29 28 46;
+  --claude-300: 44 42 68;
+  --claude-400: 59 56 90;
+  --claude-500: 74 70 112;
+  --claude-600: 103 99 139;
+  --claude-700: 141 138 168;
+  --claude-800: 200 198 213;
+  --claude-900: 235 234 242;
+  --claude-950: 248 247 251;
+  --accent: 180 130 80;
+  --accent-light: 160 112 60;
+  --accent-dark: 200 160 110;
+}
+
+/* ---- Light overrides for Tailwind default utilities ---- */
+.light {
+  color-scheme: light;
+}
+
+.light .text-gray-100 { color: rgb(20 18 35); }
+.light .text-gray-200 { color: rgb(40 37 60); }
+.light .text-gray-300 { color: rgb(60 56 85); }
+.light .text-gray-400 { color: rgb(95 90 120); }
+.light .text-gray-500 { color: rgb(130 126 155); }
+.light .text-gray-600 { color: rgb(160 156 180); }
+.light .text-gray-700 { color: rgb(180 177 195); }
+.light .text-claude-900 { color: rgb(14 14 24); }
+
+.light .border-claude-700\/30 { border-color: rgb(141 138 168 / 0.3); }
+.light .bg-black\/60 { background-color: rgb(0 0 0 / 0.15); }
+
+/* Scrollbar */
 * {
   scrollbar-width: thin;
+}
+
+.dark * {
   scrollbar-color: #3b385a transparent;
+}
+
+.light * {
+  scrollbar-color: #c8c6d5 transparent;
 }
 
 *::-webkit-scrollbar {
@@ -20,8 +85,13 @@
   background: transparent;
 }
 
-*::-webkit-scrollbar-thumb {
+.dark *::-webkit-scrollbar-thumb {
   background-color: #3b385a;
+  border-radius: 3px;
+}
+
+.light *::-webkit-scrollbar-thumb {
+  background-color: #c8c6d5;
   border-radius: 3px;
 }
 
@@ -54,6 +124,13 @@ body {
   transition: border-color 200ms ease, box-shadow 200ms ease;
 }
 .card-hover:hover {
-  border-color: #d4a57440;
-  box-shadow: 0 0 20px rgba(212, 165, 116, 0.08);
+  border-color: rgb(var(--accent) / 0.25);
+  box-shadow: 0 0 20px rgb(var(--accent) / 0.08);
+}
+
+/* Safe area for mobile bottom nav */
+@layer utilities {
+  .pb-safe {
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
 }

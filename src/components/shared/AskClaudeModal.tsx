@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send, Bot, Terminal } from 'lucide-react';
 import { useWebSocket } from '../../hooks/useWebSocket';
+import { useUIStore } from '../../store/uiStore';
 import clsx from 'clsx';
 
 interface AskClaudeModalProps {
@@ -16,6 +17,8 @@ export function AskClaudeModal({ open, onClose }: AskClaudeModalProps) {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const outputRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const theme = useUIStore((s) => s.theme);
+  const isLight = theme === 'light';
 
   // Subscribe to launch events
   useEffect(() => {
@@ -93,12 +96,18 @@ export function AskClaudeModal({ open, onClose }: AskClaudeModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
-      <div className="w-full max-w-2xl mx-4 rounded-xl border border-claude-700 bg-claude-900 shadow-2xl overflow-hidden">
+      <div className={clsx(
+        'w-full max-w-2xl mx-4 rounded-xl border shadow-2xl overflow-hidden',
+        isLight ? 'border-claude-700 bg-white' : 'border-claude-700 bg-claude-900'
+      )}>
         {/* Header */}
-        <div className="flex items-center justify-between border-b border-claude-800 px-4 py-3">
+        <div className={clsx(
+          'flex items-center justify-between border-b px-4 py-3',
+          isLight ? 'border-claude-800' : 'border-claude-800'
+        )}>
           <div className="flex items-center gap-2">
             <Bot className="h-5 w-5 text-accent" />
-            <span className="text-sm font-semibold text-gray-200">Ask Claude</span>
+            <span className={clsx('text-sm font-semibold', isLight ? 'text-gray-800' : 'text-gray-200')}>Ask Claude</span>
           </div>
           <button
             onClick={onClose}
@@ -112,7 +121,10 @@ export function AskClaudeModal({ open, onClose }: AskClaudeModalProps) {
         {(status === 'running' || status === 'done' || status === 'error') && (
           <div
             ref={outputRef}
-            className="terminal-output max-h-64 overflow-y-auto bg-claude-950 p-4 border-b border-claude-800 space-y-1"
+            className={clsx(
+              'terminal-output max-h-64 overflow-y-auto p-4 border-b space-y-1',
+              isLight ? 'bg-claude-950 border-claude-800' : 'bg-claude-950 border-claude-800'
+            )}
           >
             {output.map((line, i) => (
               <p key={i} className={clsx(
@@ -141,7 +153,12 @@ export function AskClaudeModal({ open, onClose }: AskClaudeModalProps) {
               onKeyDown={handleKeyDown}
               placeholder="Ask Claude anything... (Enter to send, Shift+Enter for new line, Esc to close)"
               rows={3}
-              className="w-full rounded-lg border border-claude-700 bg-claude-950 p-3 pr-12 text-sm text-gray-200 placeholder-gray-600 resize-none focus:border-accent focus:outline-none"
+              className={clsx(
+                'w-full rounded-lg border p-3 pr-12 text-sm placeholder-gray-600 resize-none focus:outline-none',
+                isLight
+                  ? 'border-claude-700 bg-claude-950 text-gray-800 focus:border-accent'
+                  : 'border-claude-700 bg-claude-950 text-gray-200 focus:border-accent'
+              )}
               disabled={status === 'running'}
             />
             <button

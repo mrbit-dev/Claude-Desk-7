@@ -5,14 +5,23 @@ echo   Claude Desk 7 - Stopping Server
 echo ==========================================
 echo.
 
-:: Find and kill the node process running the server
-for /f "tokens=2 delims=," %%a in ('tasklist /FI "WINDOWTITLE eq Claude Desk 7*" /FO CSV /NH 2^>nul') do (
-    taskkill /F /PID %%a >nul 2>&1
+:: Kill node processes serving the app (vite dev server + tsx backend)
+echo [*] Stopping Vite dev server...
+taskkill /f /fi "IMAGENAME eq node.exe" /fi "WINDOWTITLE eq vite*" 2>nul
+
+echo [*] Stopping tsx backend...
+taskkill /f /fi "IMAGENAME eq node.exe" /fi "WINDOWTITLE eq tsx*" 2>nul
+
+:: Also kill specific processes by port usage
+echo [*] Checking ports 5173 and 3712...
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":5173 "') do (
+    taskkill /f /pid %%a 2>nul
+)
+for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":3712 "') do (
+    taskkill /f /pid %%a 2>nul
 )
 
-:: Also kill any tsx serving the server
-taskkill /F /IM node.exe /FI "WINDOWTITLE eq Claude Desk 7*" >nul 2>&1
-
+echo.
 echo [OK] Server stopped.
 echo.
 pause

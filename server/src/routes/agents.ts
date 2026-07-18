@@ -1,9 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getActiveAgents, getCachedAgents, getCachedAgentTree, buildAgentTree } from '../services/agent-monitor.js';
 import { getAllDashboardAgents } from '../services/dashboard-agent-store.js';
-import { config } from '../config.js';
-import { join } from 'path';
-import { existsSync, readdirSync, readFileSync } from 'fs';
+import { buildUnifiedTree, getAgentTranscript, getAgentLogs } from '../services/unified-agent.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -35,7 +33,7 @@ router.get('/cached', (_req: Request, res: Response) => {
   res.json(getCachedAgents());
 });
 
-// GET /api/agents/all — merged list of Claude agents + dashboard-tracked agents
+// GET /api/agents/all — merged list
 router.get('/all', (_req: Request, res: Response) => {
   try {
     const claudeAgents = getActiveAgents();
@@ -48,6 +46,40 @@ router.get('/all', (_req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Failed to list all agents');
     res.status(500).json({ error: 'Failed to list all agents' });
+  }
+});
+
+// GET /api/agents/unified — unified tree (Claude + Dashboard merged)
+router.get('/unified', (_req: Request, res: Response) => {
+  try {
+    const roots = buildUnifiedTree();
+    res.json(roots);
+  } catch (error) {
+    logger.error({ error }, 'Failed to build unified tree');
+    res.status(500).json({ error: 'Failed to build unified tree' });
+  }
+});
+
+// GET /api/agents/transcript/:sessionId — live transcript for mini viewer
+router.get('/transcript/:sessionId', (req: Request, res: Response) => {
+  try {
+    const limit = parseInt(req.query.limit as string) || 20;
+    const lines = getAgentTranscript(req.params.sessionId, limit);
+    res.json({ sessionId: req.params.sessionId, lines, count: lines.length });
+  } catch (error) {
+    logger.error({ error }, 'Failed to get agent transcript');
+    res.status(500).json({ error: 'Failed to get agent transcript' });
+  }
+});
+
+// GET /api/agents/logs/:sessionId — agent logs
+router.get('/logs/:sessionId', (req: Request, res: Response) => {
+  try {
+    const logs = getAgentLogs(req.params.sessionId);
+    res.json({ sessionId: req.params.sessionId, logs });
+  } catch (error) {
+    logger.error({ error }, 'Failed to get agent logs');
+    res.status(500).json({ error: 'Failed to get agent logs' });
   }
 });
 
@@ -80,7 +112,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/agents/:id/heartbeat — keep agent alive
+// POST /api/agents/:id/heartbeat
 router.post('/:id/heartbeat', async (req: Request, res: Response) => {
   try {
     const { heartbeatDashboardAgent } = await import('../services/dashboard-agent-store.js');
@@ -92,7 +124,7 @@ router.post('/:id/heartbeat', async (req: Request, res: Response) => {
   }
 });
 
-// POST /api/agents/:id/status — update agent status
+// POST /api/agents/:id/status
 router.post('/:id/status', async (req: Request, res: Response) => {
   try {
     const { updateDashboardAgentStatus } = await import('../services/dashboard-agent-store.js');

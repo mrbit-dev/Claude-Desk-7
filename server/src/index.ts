@@ -26,6 +26,7 @@ import chatRouter from './routes/chat.js';
 // WebSocket
 import { initWebSocketServer, broadcastEvent } from './websocket/handler.js';
 import { startAgentPolling } from './services/agent-monitor.js';
+import { startUnifiedPolling } from './services/unified-agent.js';
 import { watchSettings } from './utils/file-watcher.js';
 import { readSettings } from './services/settings-store.js';
 
@@ -83,6 +84,10 @@ logger.info('WebSocket server initialized on /ws');
 startAgentPolling();
 logger.info('Agent polling started');
 
+// Start unified agent polling (for new Agents page)
+startUnifiedPolling();
+logger.info('Unified agent polling started');
+
 // Scan and monitor existing Claude processes
 import { scanAndMonitorClaudeProcesses } from './utils/process-manager.js';
 scanAndMonitorClaudeProcesses();
@@ -103,7 +108,6 @@ watchSettings(() => {
 // Watch sessions directory for new/deleted files
 import { watchSessions } from './utils/file-watcher.js';
 watchSessions(() => {
-  // Sessions are already polled by React Query — we just trigger WS notification
   broadcastEvent({ type: 'session:updated', sessionId: 'all' });
 });
 

@@ -72,11 +72,23 @@ function handleClientMessage(ws: WebSocket, state: ClientState, msg: WSClientMes
       state.subscriptions.add('logs');
       break;
 
+    case 'subscribe:mcp-logs':
+      state.subscriptions.add(`mcp-logs:${msg.serverName}`);
+      break;
+
     case 'launch:input':
       sendProcessInput(msg.sessionId, msg.text);
       break;
 
     case 'launch:cancel':
+      killClaudeProcess(msg.sessionId);
+      break;
+
+    case 'chat:input':
+      sendProcessInput(msg.sessionId, msg.text);
+      break;
+
+    case 'chat:cancel':
       killClaudeProcess(msg.sessionId);
       break;
   }
@@ -117,6 +129,12 @@ export function broadcastEvent(event: WSEvent): void {
         }
         break;
 
+      case 'agents:sync':
+        if (state.subscriptions.has('agent:watch')) {
+          sendSafe(state.ws, event);
+        }
+        break;
+
       case 'settings:changed':
         sendSafe(state.ws, event);
         break;
@@ -124,6 +142,12 @@ export function broadcastEvent(event: WSEvent): void {
       case 'session:created':
       case 'session:deleted':
         sendSafe(state.ws, event);
+        break;
+
+      case 'mcp:log':
+        if (state.subscriptions.has(`mcp-logs:${event.serverName}`)) {
+          sendSafe(state.ws, event);
+        }
         break;
     }
   }

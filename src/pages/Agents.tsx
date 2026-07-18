@@ -1,41 +1,42 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useCallback } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
-  Bot, Activity, GitBranch, Layers, Zap, Loader2, CheckCircle2, XCircle,
-  Clock, Timer, ListTree, Columns2, PanelRightOpen, ChevronDown, ChevronRight,
-  Workflow, Search, Filter, RefreshCw, AlertCircle
+  Bot, Layers, Zap, Loader2, CheckCircle2, XCircle, AlertCircle,
+  Clock, Timer, ChevronDown, ChevronRight, Search, RefreshCw,
+  PanelRightOpen, MessageSquare, FileText, X, List, Wrench, Brain,
 } from 'lucide-react';
 import { api } from '../api/client';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 import { EmptyState } from '../components/shared/EmptyState';
 import { useWebSocket } from '../hooks/useWebSocket';
 import { formatRelativeTime, formatDuration } from '../utils/format';
-import { useQuery } from '@tanstack/react-query';
 import clsx from 'clsx';
 
 /* ─── Types ─── */
 
-interface AgentTreeNode {
-  sessionId: string;
+interface AgentActivity {
+  type: 'tool_use' | 'tool_result' | 'thinking' | 'message' | 'error' | 'file_write';
+  toolName?: string;
+  toolInput?: unknown;
+  thinking?: string;
+  summary?: string;
+  timestamp: string;
+}
+
+interface AgentUnifiedNode {
+  id: string;
   name: string;
-  displayName?: string;
-  source?: string;
-  projectName?: string;
+  description: string;
   kind: string;
+  status: 'running' | 'completed' | 'error' | 'pending';
+  source: string;
+  sessionId: string;
   pid?: number;
   cwd?: string;
   startedAt?: number;
-  description?: string;
-  spawnDepth?: number;
-  children: AgentTreeNode[];
-}
-
-interface ActivityEvent {
-  id: string;
-  sessionId: string;
-  agentName: string;
-  type: 'tool_use' | 'tool_result' | 'thinking' | 'message' | 'error';
-  summary: string;
-  timestamp: number;
+  progress: number;
+  activity: AgentActivity[];
+  children: AgentUnifiedNode[];
 }
 
 /* ─── Duration Hook ─── */
@@ -52,252 +53,311 @@ function useLiveDuration(startedAt?: number) {
   return elapsed || '—';
 }
 
-/* ─── Agent Stats Bar ─── */
+/* ─── Activity Icon ─── */
 
-function AgentStatsBar({ nodes, onRefresh }: { nodes: AgentTreeNode[]; onRefresh: () => void }) {
-  const countAll = (ns: AgentTreeNode[]): { running: number; completed: number; error: number; total: number } =>
-    ns.reduce((acc, n) => {
-      acc.total++;
-      // Default to running since these are live agents
-      acc.running++;
-      return acc;
-    }, { running: 0, completed: 0, error: 0, total: 0 });
+function ActivityIcon({ type, size = 'sm' }: { type: string; size?: 'sm' | 'xs' }) {
+  const cls = size === 'xs' ? 'h-2.5 w-2.5' : 'h-3 w-3';
+  switch (type) {
+    case 'tool_use': return <Wrench className={`${cls} text-accent`} />;
+    case 'tool_result': return <CheckCircle2 className={`${cls} text-green-400`} />;
+    case 'thinking': return <Brain className={`${cls} text-blue-400`} />;
+    case 'message': return <MessageSquare className={`${cls} text-gray-400`} />;
+    case 'error': return <XCircle className={`${cls} text-red-400`} />;
+    case 'file_write': return <FileText className={`${cls} text-amber-400`} />;
+    default: return <Zap className={`${cls} text-accent`} />;
+  }
+}
 
-  const stats = countAll(nodes);
-  const mainCount = nodes.length;
-  const subCount = stats.total - mainCount;
+/* ─── Mini Transcript Viewer (slide-over) ─── */
+
+function MiniTranscriptViewer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+  const [lines, setLines] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    setLoading(true);
+    api.get(`/agents/transcript/${sessionId}?limit=30`)
+      .then((data: any) => setLines(data.lines || []))
+      .catch(() => setLines([]))
+      .finally(() => setLoading(false));
+  }, [sessionId]);
+
+  useEffect(() => {
+    if (!sessionId) return;
+    const id = setInterval(() => {
+      api.get(`/agents/transcript/${sessionId}?limit=30`)
+        .then((data: any) => setLines(data.lines || []))
+        .catch(() => {});
+    }, 3000);
+    return () => clearInterval(id);
+  }, [sessionId]);
 
   return (
-    <div className="flex flex-wrap items-center gap-3">
-      <div className="flex items-center gap-2 rounded-xl border border-claude-800 bg-claude-900/80 px-4 py-2.5">
-        <Bot className="h-4 w-4 text-accent" />
-        <div className="text-xs">
-          <span className="text-gray-200 font-semibold">{mainCount}</span>
-          <span className="text-gray-500 ml-1">MAIN</span>
-        </div>
-        <div className="w-px h-4 bg-claude-800 mx-2" />
-        <Layers className="h-4 w-4 text-accent/70" />
-        <div className="text-xs">
-          <span className="text-gray-200 font-semibold">{subCount}</span>
-          <span className="text-gray-500 ml-1">SUB</span>
-        </div>
+    <div className="fixed right-0 top-0 h-full w-96 border-l border-claude-800 bg-claude-900 z-50 shadow-2xl flex flex-col">
+      <div className="flex items-center justify-between border-b border-claude-800 px-4 py-3">
+        <h3 className="text-xs font-semibold text-gray-300 flex items-center gap-2">
+          <MessageSquare className="h-3.5 w-3.5 text-accent" />
+          Agent Transcript
+          <span className="text-[10px] text-gray-600 font-mono">{sessionId.slice(0, 8)}</span>
+        </h3>
+        <button onClick={onClose} className="rounded p-1 text-gray-500 hover:text-gray-300 hover:bg-claude-800 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
       </div>
-
-      <div className="flex items-center gap-2 text-xs text-gray-500">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />
-          {stats.running} running
-        </span>
+      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 text-gray-500 animate-spin" /></div>
+        ) : lines.length === 0 ? (
+          <p className="text-xs text-gray-600 text-center py-8">No transcript data available</p>
+        ) : (
+          lines.slice().reverse().map((line, i) => (
+            <div key={i} className="rounded-lg border border-claude-800 bg-claude-950/50 p-2.5">
+              <div className="flex items-center gap-1.5 mb-1">
+                <span className={clsx(
+                  'text-[10px] font-medium px-1 py-0.5 rounded',
+                  line.type === 'user' ? 'bg-accent/15 text-accent' : 'bg-blue-900/20 text-blue-400'
+                )}>
+                  {line.type === 'user' ? 'USER' : 'CLAUDE'}
+                </span>
+                {line.message?.model && (
+                  <span className="text-[9px] text-gray-600 font-mono">{line.message.model}</span>
+                )}
+                <span className="text-[9px] text-gray-700 ml-auto font-mono">
+                  {line.timestamp ? new Date(line.timestamp).toLocaleTimeString() : ''}
+                </span>
+              </div>
+              {line.message?.content?.map((block: any, j: number) => (
+                <div key={j}>
+                  {block.type === 'text' && (
+                    <p className="text-[11px] text-gray-400 leading-relaxed line-clamp-3 whitespace-pre-wrap">{block.text}</p>
+                  )}
+                  {block.type === 'tool_use' && (
+                    <div className="flex items-center gap-1 text-[10px] text-accent">
+                      <Wrench className="h-3 w-3" /> {block.name}
+                    </div>
+                  )}
+                  {block.type === 'thinking' && (
+                    <div className="flex items-center gap-1 text-[10px] text-blue-400/70 italic">
+                      <Brain className="h-3 w-3" /> Thinking...
+                    </div>
+                  )}
+                  {block.type === 'tool_result' && (
+                    <div className="text-[10px] text-green-400/70">✓ Tool result</div>
+                  )}
+                </div>
+              ))}
+            </div>
+          ))
+        )}
       </div>
-
-      <button
-        onClick={onRefresh}
-        className="ml-auto flex items-center gap-1.5 rounded-lg border border-claude-700 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 hover:bg-claude-800 transition-colors"
-      >
-        <RefreshCw className="h-3.5 w-3.5" />
-        Refresh
-      </button>
+      <div className="border-t border-claude-800 px-4 py-2 text-[10px] text-gray-700 text-center">
+        Auto-updates every 3s
+      </div>
     </div>
   );
 }
 
-/* ─── Activity Feed Item ─── */
+/* ─── Agent Log Viewer ─── */
 
-function ActivityItem({ event, depth }: { event: ActivityEvent; depth: number }) {
-  const iconMap = {
-    tool_use: <Zap className="h-3 w-3 text-accent" />,
-    tool_result: <CheckCircle2 className="h-3 w-3 text-green-400" />,
-    thinking: <Loader2 className="h-3 w-3 text-blue-400 animate-spin" />,
-    message: <Bot className="h-3 w-3 text-gray-400" />,
-    error: <XCircle className="h-3 w-3 text-red-400" />,
-  };
+function AgentLogViewer({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
+  const [logs, setLogs] = useState<string[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api.get(`/agents/logs/${sessionId}`)
+      .then((data: any) => setLogs(data.logs || []))
+      .catch(() => setLogs(['Failed to load logs']))
+      .finally(() => setLoading(false));
+  }, [sessionId]);
 
   return (
-    <div className="flex items-start gap-2 py-1 group" style={{ paddingLeft: `${depth * 16 + 8}px` }}>
-      <span className="mt-0.5 flex-shrink-0">{iconMap[event.type]}</span>
-      <div className="min-w-0 flex-1">
-        <p className="text-xs text-gray-400 leading-relaxed truncate">{event.summary}</p>
-        <span className="text-[9px] text-gray-700 font-mono">
-          {formatRelativeTime(event.timestamp)}
-        </span>
+    <div className="fixed right-0 top-0 h-full w-96 border-l border-claude-800 bg-claude-900 z-50 shadow-2xl flex flex-col">
+      <div className="flex items-center justify-between border-b border-claude-800 px-4 py-3">
+        <h3 className="text-xs font-semibold text-gray-300 flex items-center gap-2">
+          <List className="h-3.5 w-3.5 text-accent" />
+          Agent Details
+          <span className="text-[10px] text-gray-600 font-mono">{sessionId.slice(0, 8)}</span>
+        </h3>
+        <button onClick={onClose} className="rounded p-1 text-gray-500 hover:text-gray-300 hover:bg-claude-800 transition-colors">
+          <X className="h-4 w-4" />
+        </button>
+      </div>
+      <div className="flex-1 overflow-y-auto p-3">
+        {loading ? (
+          <div className="flex justify-center py-8"><Loader2 className="h-5 w-5 text-gray-500 animate-spin" /></div>
+        ) : logs.length === 0 ? (
+          <p className="text-xs text-gray-600 text-center py-8">No details available</p>
+        ) : (
+          <div className="space-y-1 font-mono">
+            {logs.map((log, i) => (
+              <p key={i} className="text-[11px] text-gray-500 leading-relaxed whitespace-pre-wrap">{log}</p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-/* ─── Agent Flow Tree (enhanced with duration, activity) ─── */
+/* ─── Agent Flow Tree (enhanced) ─── */
 
 function AgentFlowTree({
-  node, depth = 0, allEvents
+  node, depth = 0, onViewTranscript, onViewLogs
 }: {
-  node: AgentTreeNode;
+  node: AgentUnifiedNode;
   depth?: number;
-  allEvents: ActivityEvent[];
+  onViewTranscript: (sessionId: string) => void;
+  onViewLogs: (sessionId: string) => void;
 }) {
-  const isMain = depth === 0;
   const [expanded, setExpanded] = useState(true);
-  const [progress] = useState(() => Math.floor(Math.random() * 40) + 30);
   const elapsed = useLiveDuration(node.startedAt);
+  const isMain = depth === 0;
+  const isRunning = node.status === 'running';
+  const isError = node.status === 'error';
 
-  const nodeEvents = allEvents.filter(e => e.sessionId === node.sessionId).slice(-5);
-  const status = 'running';
+  const recentActivity = node.activity.slice(-3);
 
   return (
-    <div className="relative group">
-      {/* Connector line */}
+    <div className="relative">
       {depth > 0 && (
         <div className="absolute left-[-1.25rem] top-[2.5rem] w-5 h-px bg-gradient-to-r from-transparent via-accent/30 to-transparent" />
       )}
 
-      <div
-        className={clsx(
-          'relative rounded-xl border transition-all duration-300',
-          'backdrop-blur-sm',
-          depth === 0
-            ? 'border-accent/30 bg-claude-900/90 shadow-[0_0_15px_rgba(168,130,255,0.12)]'
-            : 'border-claude-700/50 bg-claude-900/70',
-        )}
-      >
-        {/* Glow overlay for running */}
-        {status === 'running' && (
+      <div className={clsx(
+        'relative rounded-xl border transition-all duration-300 backdrop-blur-sm',
+        isMain ? 'border-accent/30 bg-claude-900/90 shadow-[0_0_15px_rgba(168,130,255,0.12)]' : 'border-claude-700/50 bg-claude-900/70',
+        isError && 'border-red-800/50 shadow-[0_0_10px_rgba(248,113,113,0.1)]',
+        !isRunning && !isError && 'border-claude-800/80',
+      )}>
+        {isRunning && (
           <div className="absolute inset-0 rounded-xl pointer-events-none overflow-hidden">
             <div className="absolute -inset-1 opacity-20"
               style={{
                 background: 'radial-gradient(ellipse at 50% 0%, rgba(168,130,255,0.3) 0%, transparent 70%)',
-                animation: 'shimmer 3s linear infinite',
               }}
             />
           </div>
         )}
 
         <div className="relative z-10 p-4">
-          {/* HEADER */}
           <div className="flex items-start justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0 flex-1">
-              {/* Icon */}
               <div className={clsx(
                 'relative rounded-xl p-2.5 flex-shrink-0',
-                depth === 0 ? 'bg-gradient-to-br from-accent/20 to-purple-500/20' : 'bg-claude-800/80',
+                isMain ? 'bg-gradient-to-br from-accent/20 to-purple-500/20' : 'bg-claude-800/80',
               )}>
-                {depth === 0
-                  ? <Bot className="h-5 w-5 text-accent" />
-                  : <Layers className="h-4 w-4 text-accent/80" />
-                }
-                {status === 'running' && (
+                {isMain ? <Bot className="h-5 w-5 text-accent" /> : <Layers className="h-4 w-4 text-accent/80" />}
+                {isRunning && (
                   <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5">
                     <span className="animate-ping absolute inset-0 rounded-full bg-accent/60" />
                     <span className="rounded-full bg-accent h-2.5 w-2.5 block" />
                   </span>
                 )}
+                {isError && (
+                  <span className="absolute -top-0.5 -right-0.5 h-2.5 w-2.5">
+                    <span className="rounded-full bg-red-500 h-2.5 w-2.5 block" />
+                  </span>
+                )}
               </div>
 
-              {/* Info */}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className={clsx('font-semibold truncate', depth === 0 ? 'text-gray-100 text-base' : 'text-gray-200 text-sm')}>
-                    {node.displayName || node.name || 'Unnamed'}
+                  <span className={clsx('font-semibold truncate', isMain ? 'text-gray-100 text-base' : 'text-gray-200 text-sm')}>
+                    {node.name}
                   </span>
                   <span className={clsx(
                     'text-[10px] font-medium px-1.5 py-0.5 rounded',
-                    depth === 0 ? 'bg-accent/15 text-accent' : 'bg-claude-800 text-gray-500'
-                  )}>
-                    {depth === 0 ? 'MAIN' : 'SUB'}
-                  </span>
-                  <span className="text-[10px] text-gray-600 bg-claude-800/50 px-1.5 py-0.5 rounded font-mono">
-                    {node.kind}
-                  </span>
-                  {node.source && (
-                    <span className="text-[10px] text-gray-600 bg-claude-800/30 px-2 py-0.5 rounded">
-                      {node.source}
-                    </span>
-                  )}
+                    isMain ? 'bg-accent/15 text-accent' : 'bg-claude-800 text-gray-500'
+                  )}>{isMain ? 'MAIN' : 'SUB'}</span>
+                  <span className="text-[10px] text-gray-600 bg-claude-800/50 px-1.5 py-0.5 rounded font-mono">{node.kind}</span>
+                  <span className={clsx(
+                    'text-[10px] px-1.5 py-0.5 rounded',
+                    node.source === 'dashboard' ? 'bg-blue-900/20 text-blue-400' : 'bg-claude-800/50 text-gray-500'
+                  )}>{node.source}</span>
                 </div>
 
-                {/* Description + activity */}
                 {node.description && (
                   <div className="mt-1.5 flex items-start gap-1.5">
-                    <Zap className="h-3 w-3 mt-0.5 flex-shrink-0 text-accent animate-pulse" />
-                    <p className="text-xs text-gray-300 leading-relaxed line-clamp-2">
+                    <ActivityIcon type={recentActivity[0]?.type || 'message'} />
+                    <p className={clsx('text-xs leading-relaxed line-clamp-2', isRunning ? 'text-gray-300' : 'text-gray-500')}>
                       {node.description}
-                      <span className="inline-block w-1 h-3 bg-accent ml-0.5 animate-pulse" />
+                      {isRunning && <span className="inline-block w-1 h-3 bg-accent ml-0.5 animate-pulse" />}
                     </p>
                   </div>
                 )}
 
-                {/* Meta row */}
-                <div className="mt-1.5 flex items-center gap-3 text-[10px] text-gray-600 font-mono">
+                <div className="mt-1.5 flex items-center gap-3 text-[10px] text-gray-600 font-mono flex-wrap">
                   {node.pid && <span>PID {node.pid}</span>}
                   {node.startedAt && (
-                    <span className="flex items-center gap-1">
-                      <Clock className="h-3 w-3" />
-                      {elapsed}
-                    </span>
+                    <span className="flex items-center gap-1"><Clock className="h-3 w-3" />{elapsed}</span>
                   )}
-                  {node.cwd && <span className="truncate max-w-[150px]">{node.cwd}</span>}
+                  <span className={clsx('flex items-center gap-1', isRunning && 'text-accent', isError && 'text-red-400')}>
+                    <span className={clsx('h-1.5 w-1.5 rounded-full', isRunning ? 'bg-accent animate-pulse' : isError ? 'bg-red-500' : 'bg-gray-500')} />
+                    {node.status}
+                  </span>
+                  <span className="text-gray-700">{node.progress}%</span>
                 </div>
               </div>
             </div>
 
-            {/* Right: status icon + expand */}
-            <div className="flex items-center gap-2 flex-shrink-0">
-              <span className="flex items-center gap-1 text-[10px] text-accent">
-                <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-                Running
-              </span>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <button onClick={() => onViewTranscript(node.sessionId)}
+                className="rounded-lg border border-claude-700 p-1.5 text-gray-500 hover:text-accent hover:border-accent/40 transition-colors" title="View transcript">
+                <MessageSquare className="h-3.5 w-3.5" />
+              </button>
+              <button onClick={() => onViewLogs(node.sessionId)}
+                className="rounded-lg border border-claude-700 p-1.5 text-gray-500 hover:text-accent hover:border-accent/40 transition-colors" title="View details">
+                <List className="h-3.5 w-3.5" />
+              </button>
               {node.children.length > 0 && (
-                <button
-                  onClick={() => setExpanded(!expanded)}
-                  className="rounded p-1 text-gray-600 hover:text-gray-300 hover:bg-claude-800 transition-colors"
-                >
-                  {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                <button onClick={() => setExpanded(!expanded)}
+                  className="rounded-lg border border-claude-700 p-1.5 text-gray-500 hover:text-gray-300 hover:bg-claude-800 transition-colors">
+                  {expanded ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronRight className="h-3.5 w-3.5" />}
                 </button>
               )}
             </div>
           </div>
 
-          {/* Progress bar */}
-          {status === 'running' && (
+          {isRunning && (
             <div className="mt-3">
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-1.5 bg-claude-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-gradient-to-r from-accent via-purple-400 to-accent"
-                    style={{
-                      width: `${Math.min(progress, 100)}%`,
-                      backgroundSize: '200% 100%',
-                      animation: 'shimmer 2s linear infinite',
-                    }}
-                  />
+                  <div className="h-full rounded-full bg-gradient-to-r from-accent via-purple-400 to-accent transition-all duration-1000 ease-out"
+                    style={{ width: `${Math.min(node.progress, 100)}%`, backgroundSize: '200% 100%', animation: 'shimmer 2s linear infinite' }} />
                 </div>
-                <span className="text-[10px] font-mono font-medium text-accent">{progress}%</span>
+                <span className="text-[10px] font-mono font-medium text-accent">{node.progress}%</span>
               </div>
             </div>
           )}
 
-          {/* Activity feed (inline) */}
-          {nodeEvents.length > 0 && (
-            <div className="mt-2 pt-2 border-t border-claude-800/50">
-              <div className="space-y-0.5">
-                {nodeEvents.map((ev) => (
-                  <ActivityItem key={ev.id} event={ev} depth={0} />
-                ))}
-              </div>
+          {node.activity.length > 0 && (
+            <div className="mt-2 pt-2 border-t border-claude-800/50 space-y-0.5">
+              {node.activity.slice(-5).reverse().map((act, i) => (
+                <div key={i} className="flex items-start gap-1.5 py-0.5 group">
+                  <ActivityIcon type={act.type} size="xs" />
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[10px] text-gray-500 leading-relaxed truncate">
+                      {act.type === 'tool_use' && <>🔧 <span className="text-accent">{act.toolName}</span></>}
+                      {act.type === 'tool_result' && <>✅ Tool result</>}
+                      {act.type === 'thinking' && <>🧠 <span className="text-blue-400/70">Thinking...</span></>}
+                      {act.type === 'message' && <>{act.summary?.slice(0, 120)}</>}
+                      {act.type === 'error' && <span className="text-red-400">{act.summary}</span>}
+                      {act.type === 'file_write' && <>📄 {act.summary}</>}
+                    </p>
+                    <span className="text-[8px] text-gray-700 font-mono">
+                      {act.timestamp ? formatRelativeTime(new Date(act.timestamp).getTime()) : ''}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           )}
 
-          {/* Children */}
           {node.children.length > 0 && expanded && (
-            <div className={clsx(
-              'mt-3',
-              depth === 0 ? 'space-y-2' : 'space-y-1.5'
-            )}>
+            <div className={clsx('mt-3 space-y-2')}>
               {node.children.map((child, i) => (
-                <AgentFlowTree
-                  key={child.sessionId + '-' + i}
-                  node={child}
-                  depth={depth + 1}
-                  allEvents={allEvents}
-                />
+                <AgentFlowTree key={child.id || i} node={child} depth={depth + 1}
+                  onViewTranscript={onViewTranscript} onViewLogs={onViewLogs} />
               ))}
             </div>
           )}
@@ -307,171 +367,44 @@ function AgentFlowTree({
   );
 }
 
-/* ─── Timeline / Gantt View ─── */
+/* ─── Stats Bar ─── */
 
-function GanttTimeline({ nodes }: { nodes: AgentTreeNode[] }) {
-  const flat = (ns: AgentTreeNode[]): { name: string; depth: number; startedAt: number; kind: string }[] => {
-    const result: any[] = [];
-    const walk = (list: AgentTreeNode[], d: number) => {
+function AgentStatsBar({ roots, onRefresh }: { roots: AgentUnifiedNode[]; onRefresh: () => void }) {
+  const countAll = (nodes: AgentUnifiedNode[]): { running: number; completed: number; error: number; total: number } => {
+    let running = 0, completed = 0, error = 0;
+    const walk = (list: AgentUnifiedNode[]) => {
       for (const n of list) {
-        result.push({ name: n.displayName || n.name, depth: d, startedAt: n.startedAt || Date.now(), kind: n.kind });
-        walk(n.children, d + 1);
+        if (n.status === 'running') running++;
+        if (n.status === 'completed') completed++;
+        if (n.status === 'error') error++;
+        walk(n.children);
       }
     };
-    walk(ns, 0);
-    return result;
+    walk(nodes);
+    return { running, completed, error, total: running + completed + error };
   };
 
-  const items = flat(nodes);
-  const now = Date.now();
-  const start = Math.min(...items.map(i => i.startedAt));
-  const totalDur = Math.max(now - start, 60000);
-  const colWidth = 800;
+  const stats = countAll(roots);
+  const mainCount = roots.length;
+  const subCount = stats.total - mainCount;
 
   return (
-    <div className="rounded-xl border border-claude-800 bg-claude-900/50 overflow-hidden">
-      <div className="p-3 border-b border-claude-800">
-        <div className="flex items-center gap-2">
-          <Columns2 className="h-4 w-4 text-accent" />
-          <span className="text-xs font-semibold text-gray-300">Timeline (last 5 min)</span>
-        </div>
+    <div className="flex flex-wrap items-center gap-3">
+      <div className="flex items-center gap-2 rounded-xl border border-claude-800 bg-claude-900/80 px-4 py-2.5">
+        <Bot className="h-4 w-4 text-accent" />
+        <div className="text-xs"><span className="text-gray-200 font-semibold">{mainCount}</span><span className="text-gray-500 ml-1">MAIN</span></div>
+        <div className="w-px h-4 bg-claude-800 mx-2" />
+        <Layers className="h-4 w-4 text-accent/70" />
+        <div className="text-xs"><span className="text-gray-200 font-semibold">{subCount}</span><span className="text-gray-500 ml-1">SUB</span></div>
       </div>
-      <div className="overflow-x-auto">
-        <div style={{ minWidth: '600px' }} className="p-4 space-y-1">
-          {/* Time ruler */}
-          <div className="flex mb-2" style={{ width: colWidth }}>
-            {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="flex-1 text-[9px] text-gray-700 font-mono text-center border-l border-claude-800/30">
-                {new Date(start + (totalDur / 5) * i).toLocaleTimeString()}
-              </div>
-            ))}
-          </div>
-
-          {items.map((item, i) => {
-            const left = ((item.startedAt - start) / totalDur) * colWidth;
-            const width = Math.max(((now - item.startedAt) / totalDur) * colWidth, 20);
-            const colors = [
-              'from-accent/40 to-accent/20',
-              'from-purple-500/40 to-purple-500/20',
-              'from-blue-500/40 to-blue-500/20',
-              'from-green-500/40 to-green-500/20',
-              'from-amber-500/40 to-amber-500/20',
-            ];
-            return (
-              <div key={i} className="flex items-center gap-2 h-7 group">
-                <span className={clsx(
-                  'text-xs text-gray-500 w-32 truncate shrink-0',
-                  item.depth > 0 && 'ml-4'
-                )}>
-                  {item.name}
-                </span>
-                <div className="relative flex-1 h-5">
-                  <div
-                    className={clsx(
-                      'absolute top-1 h-3 rounded-full bg-gradient-to-r transition-all',
-                      colors[i % colors.length]
-                    )}
-                    style={{ left, width: Math.min(width, colWidth - left) }}
-                  >
-                    <div className="absolute inset-0 rounded-full bg-white/5 animate-pulse" />
-                  </div>
-                </div>
-                <span className="text-[9px] text-gray-600 font-mono w-16 text-right shrink-0">
-                  {formatDuration(now - item.startedAt)}
-                </span>
-              </div>
-            );
-          })}
-        </div>
+      <div className="flex items-center gap-2 text-xs text-gray-500">
+        {stats.running > 0 && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-green-400 animate-pulse" />{stats.running} running</span>}
+        {stats.completed > 0 && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-gray-500" />{stats.completed} done</span>}
+        {stats.error > 0 && <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-red-500" />{stats.error} errors</span>}
       </div>
-    </div>
-  );
-}
-
-/* ─── Agent Card (list view) ─── */
-
-function AgentCard({ node, depth }: { node: AgentTreeNode; depth?: number }) {
-  const elapsed = useLiveDuration(node.startedAt);
-  return (
-    <div className={clsx(
-      'rounded-xl border border-claude-800 bg-claude-900 p-4 transition-all hover:border-claude-700',
-      depth && depth > 0 ? 'ml-6' : ''
-    )}>
-      <div className="flex items-start justify-between">
-        <div className="flex items-center gap-3">
-          <div className={clsx(
-            'rounded-lg p-2',
-            depth === 0 || !depth ? 'bg-gradient-to-br from-accent/20 to-purple-500/20' : 'bg-claude-800/80'
-          )}>
-            {depth === 0 || !depth
-              ? <Bot className="h-5 w-5 text-accent" />
-              : <Layers className="h-4 w-4 text-accent/80" />
-            }
-          </div>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-medium text-gray-200 truncate">{node.displayName || node.name}</p>
-              <span className={clsx(
-                'rounded px-1.5 py-0.5 text-[9px] font-medium',
-                depth === 0 ? 'bg-accent/15 text-accent' : 'bg-claude-800 text-gray-500'
-              )}>
-                {depth === 0 ? 'MAIN' : 'SUB'}
-              </span>
-            </div>
-            <div className="flex items-center gap-2 mt-0.5 text-[10px] text-gray-600">
-              <span className="font-mono">PID {node.pid}</span>
-              <span>·</span>
-              <span className="flex items-center gap-1"><Timer className="h-3 w-3" />{elapsed}</span>
-              {node.kind && <><span>·</span><span>{node.kind}</span></>}
-              {node.source && <><span>·</span><span>{node.source}</span></>}
-            </div>
-          </div>
-        </div>
-        <span className="flex items-center gap-1 text-[10px] text-accent flex-shrink-0">
-          <span className="h-1.5 w-1.5 rounded-full bg-accent animate-pulse" />
-          Running
-        </span>
-      </div>
-      {node.description && (
-        <div className="mt-2 rounded-lg bg-claude-950/50 border border-claude-800/50 p-2.5">
-          <p className="text-xs text-gray-400 font-mono leading-relaxed line-clamp-2">{node.description}</p>
-        </div>
-      )}
-      {node.cwd && (
-        <div className="mt-2 text-[10px] text-gray-600 truncate">
-          📁 {node.cwd}
-        </div>
-      )}
-    </div>
-  );
-}
-
-/* ─── Dashboard Agent Card ─── */
-
-function DashboardAgentCard({ agent }: { agent: any }) {
-  const statusColor = agent.status === 'running' ? 'bg-accent animate-pulse' : agent.status === 'error' ? 'bg-red-500' : 'bg-gray-500';
-  return (
-    <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 p-3">
-      <div className="flex items-start gap-3">
-        <div className="rounded-lg bg-claude-800 p-2">
-          <Bot className="h-4 w-4 text-blue-400" />
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2">
-            <p className="text-xs font-medium text-gray-200">{agent.name}</p>
-            <span className={`h-2 w-2 rounded-full ${statusColor}`} />
-            <span className="text-[10px] text-gray-500">{agent.status}</span>
-          </div>
-          {agent.description && (
-            <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{agent.description}</p>
-          )}
-          {agent.kind && (
-            <span className="text-[9px] text-gray-600 bg-claude-800/50 px-1 py-0.5 rounded mt-1 inline-block">
-              {agent.kind}
-            </span>
-          )}
-        </div>
-      </div>
+      <button onClick={onRefresh} className="ml-auto flex items-center gap-1.5 rounded-lg border border-claude-700 px-3 py-1.5 text-xs text-gray-500 hover:text-gray-300 hover:bg-claude-800 transition-colors">
+        <RefreshCw className="h-3.5 w-3.5" /> Refresh
+      </button>
     </div>
   );
 }
@@ -480,217 +413,109 @@ function DashboardAgentCard({ agent }: { agent: any }) {
 
 export default function Agents() {
   const { subscribe } = useWebSocket();
-  const [view, setView] = useState<'flow' | 'tree' | 'list' | 'timeline'>('flow');
-  const [liveTree, setLiveTree] = useState<AgentTreeNode[]>([]);
-  const [dashboardAgents, setDashboardAgents] = useState<any[]>([]);
-  const [events, setEvents] = useState<ActivityEvent[]>([]);
+  const [liveRoots, setLiveRoots] = useState<AgentUnifiedNode[]>([]);
   const [search, setSearch] = useState('');
-  const [filterKind, setFilterKind] = useState<'all' | 'main' | 'sub'>('all');
+  const [transcriptSessionId, setTranscriptSessionId] = useState<string | null>(null);
+  const [logSessionId, setLogSessionId] = useState<string | null>(null);
 
-  const { data: initialAgents, isLoading, refetch } = useQuery<AgentTreeNode[]>({
-    queryKey: ['agents', 'tree'],
-    queryFn: () => api.get('/agents/tree'),
-    refetchInterval: 15000,
-  });
-
-  const { data: dashData } = useQuery<{claude: any[]; dashboard: any[]; total: number}>({
-    queryKey: ['agents', 'all'],
-    queryFn: () => api.get('/agents/all'),
-    refetchInterval: 3000,
+  const { data: initialRoots, isLoading, refetch } = useQuery({
+    queryKey: ['agents', 'unified'],
+    queryFn: () => api.get('/agents/unified'),
+    refetchInterval: 5000,
   });
 
   useEffect(() => {
-    const unsub = subscribe('agent:tree-update', (event: any) => {
-      if (event.tree) setLiveTree(event.tree);
+    const unsub = subscribe('agents:sync', (event: any) => {
+      if (event.roots) setLiveRoots(event.roots);
     });
     return unsub;
   }, [subscribe]);
 
-  useEffect(() => {
-    const unsub = subscribe('dashboard:agents', (event: any) => {
-      if (event.agents) setDashboardAgents(event.agents);
-    });
-    return unsub;
-  }, [subscribe]);
+  const roots = liveRoots.length > 0 ? liveRoots : (initialRoots || []);
 
-  useEffect(() => {
-    const unsub = subscribe('agent:activity', (event: any) => {
-      if (event.activity) {
-        setEvents(prev => [...prev.slice(-49), event.activity]);
-      }
-    });
-    return unsub;
-  }, [subscribe]);
-
-  const treeData = liveTree.length > 0 ? liveTree : (initialAgents || []);
-  const dashAgents = dashboardAgents.length > 0 ? dashboardAgents : (dashData?.dashboard || []);
-
-  // Search + filter
-  const filtered = treeData
+  const filtered = roots
     .map(agent => ({
       ...agent,
       children: agent.children.filter(c =>
-        !search || c.name?.toLowerCase().includes(search.toLowerCase())
+        !search || c.name?.toLowerCase().includes(search.toLowerCase()) ||
+        c.description?.toLowerCase().includes(search.toLowerCase())
       ),
     }))
     .filter(agent =>
-      (!search || agent.name?.toLowerCase().includes(search.toLowerCase()) ||
-        agent.description?.toLowerCase().includes(search.toLowerCase())) &&
-      filterKind === 'all'
+      !search || agent.name?.toLowerCase().includes(search.toLowerCase()) ||
+      agent.description?.toLowerCase().includes(search.toLowerCase())
     );
 
-  if (isLoading && treeData.length === 0) {
+  const countAll = (nodes: AgentUnifiedNode[]): number =>
+    nodes.reduce((c, n) => c + 1 + countAll(n.children), 0);
+  const totalAgents = countAll(roots);
+  const totalSubs = totalAgents - roots.length;
+
+  const onViewTranscript = useCallback((sid: string) => setTranscriptSessionId(sid), []);
+  const onViewLogs = useCallback((sid: string) => setLogSessionId(sid), []);
+
+  if (isLoading && roots.length === 0) {
     return <div className="flex h-full items-center justify-center"><LoadingSpinner size="lg" /></div>;
   }
 
-  const countAgents = (ns: AgentTreeNode[]): number =>
-    ns.reduce((c, n) => c + 1 + countAgents(n.children), 0);
-  const totalAgents = countAgents(treeData);
-  const totalSubs = totalAgents - treeData.length;
-
-  const views = [
-    { key: 'flow' as const, label: 'Flow', icon: '✨' },
-    { key: 'tree' as const, label: 'Tree', icon: '🌳' },
-    { key: 'list' as const, label: 'List', icon: '📋' },
-    { key: 'timeline' as const, label: 'Timeline', icon: '📊' },
-  ];
-
   return (
     <div className="space-y-6">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-gray-100">Agents</h2>
-          <p className="mt-1 text-sm text-gray-500">
-            Real-time Claude Code agent monitor
-          </p>
+          <p className="mt-1 text-sm text-gray-500">Unified agent monitor — Claude + Dashboard + Sub-agents in real-time</p>
         </div>
-
         <div className="flex items-center gap-3">
-          {treeData.length > 0 && (
-            <AgentStatsBar nodes={treeData} onRefresh={() => refetch()} />
-          )}
+          {roots.length > 0 && <AgentStatsBar roots={roots} onRefresh={() => refetch()} />}
         </div>
       </div>
 
-      {/* Search + Filters + View switcher */}
       <div className="flex flex-wrap items-center gap-3">
-        {/* Search */}
         <div className="relative flex-1 min-w-[160px] max-w-xs">
           <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-gray-600" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
             placeholder="Search agents..."
-            className="w-full rounded-lg border border-claude-800 bg-claude-900 py-1.5 pl-8 pr-3 text-xs text-gray-200 placeholder-gray-600 focus:border-accent focus:outline-none"
-          />
+            className="w-full rounded-lg border border-claude-800 bg-claude-900 py-1.5 pl-8 pr-3 text-xs text-gray-200 placeholder-gray-600 focus:border-accent focus:outline-none" />
         </div>
-
-        {/* View switcher */}
-        <div className="flex rounded-lg border border-claude-700 overflow-hidden">
-          {views.map((v) => (
-            <button
-              key={v.key}
-              onClick={() => setView(v.key)}
-              className={clsx('px-2.5 py-1.5 text-xs transition-colors',
-                view === v.key ? 'bg-claude-800 text-gray-200' : 'text-gray-500 hover:text-gray-300'
-              )}
-            >
-              {v.icon} {v.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Legend */}
         <div className="flex items-center gap-3 text-[10px] text-gray-600 ml-auto">
-          <span className="flex items-center gap-1"><Bot className="h-3 w-3 text-accent" />{treeData.length} MAIN</span>
+          <span className="flex items-center gap-1"><Bot className="h-3 w-3 text-accent" />{roots.length} MAIN</span>
           {totalSubs > 0 && <span className="flex items-center gap-1"><Layers className="h-3 w-3 text-accent/70" />{totalSubs} SUB</span>}
+          <span className="text-gray-700">|</span>
+          <span className="text-[10px] text-gray-700">Click <MessageSquare className="h-3 w-3 inline" /> for transcript</span>
         </div>
       </div>
 
-      {/* Dashboard Agents Section */}
-      {dashAgents.length > 0 && (
-        <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-              <Bot className="h-3.5 w-3.5 text-blue-400" />
-              Dashboard Agents
-              <span className="text-[10px] text-gray-600 font-normal">({dashAgents.length})</span>
-            </h3>
-            <span className="text-[10px] text-gray-600">Tracked in real-time via API/WS</span>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-            {dashAgents.map((agent: any) => (
-              <DashboardAgentCard key={agent.id} agent={agent} />
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* Guide banner */}
-      {view !== 'timeline' && (
+      {roots.length > 0 && (
         <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 p-3">
           <p className="text-xs text-gray-400 leading-relaxed">
-            ✨ <strong className="text-gray-300">Flow View</strong> — animated tree with activity feed.
-            {' '}<strong className="text-gray-300">Timeline</strong> — Gantt-style duration chart.
-            {' '}Sub-agents show inline activity in real-time.
+            <strong className="text-gray-300">Unified Flow</strong> — Claude agents + Dashboard agents merged in one tree.
+            Progress is calculated from transcript data in real-time.
+            Click the transcript/log buttons on any agent to drill down.
           </p>
         </div>
       )}
 
-      {/* Empty state */}
       {filtered.length === 0 ? (
-        <EmptyState
-          icon={Bot}
-          title="No agents running"
-          description="Agents appear here when Claude Code is actively working"
-        />
+        <EmptyState icon={Bot} title="No agents running"
+          description="Agents appear here when Claude Code is actively working" />
       ) : (
-        <>
-          {/* FLOW VIEW */}
-          {view === 'flow' && (
-            <div className="relative space-y-2">
-              <div className="absolute inset-0 pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-1/2 h-32 bg-accent/5 blur-[80px] rounded-full" />
-                <div className="absolute bottom-0 right-1/4 w-1/3 h-24 bg-purple-500/5 blur-[60px] rounded-full" />
-              </div>
-              {filtered.map((agent, i) => (
-                <AgentFlowTree
-                  key={agent.sessionId + '-' + i}
-                  node={agent}
-                  depth={0}
-                  allEvents={events}
-                />
-              ))}
-            </div>
-          )}
+        <div className="relative space-y-2">
+          <div className="absolute inset-0 pointer-events-none">
+            <div className="absolute top-0 left-1/4 w-1/2 h-32 bg-accent/5 blur-[80px] rounded-full" />
+            <div className="absolute bottom-0 right-1/4 w-1/3 h-24 bg-purple-500/5 blur-[60px] rounded-full" />
+          </div>
+          {filtered.map((agent, i) => (
+            <AgentFlowTree key={agent.id || i} node={agent} depth={0}
+              onViewTranscript={onViewTranscript} onViewLogs={onViewLogs} />
+          ))}
+        </div>
+      )}
 
-          {/* TREE VIEW */}
-          {view === 'tree' && (
-            <div className="rounded-xl border border-claude-800 bg-claude-900/50 p-4 space-y-3">
-              {filtered.map((agent, i) => (
-                <AgentCard key={agent.sessionId + '-' + i} node={agent} depth={0} />
-              ))}
-            </div>
-          )}
-
-          {/* LIST VIEW */}
-          {view === 'list' && (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {filtered.map((agent) => (
-                <AgentCard key={agent.sessionId} node={agent} />
-              ))}
-              {/* Also render sub agents as separate cards */}
-              {filtered.flatMap(a => a.children).map((child, i) => (
-                <AgentCard key={child.sessionId + '-sub-' + i} node={child} depth={1} />
-              ))}
-            </div>
-          )}
-
-          {/* TIMELINE VIEW */}
-          {view === 'timeline' && <GanttTimeline nodes={filtered} />}
-        </>
+      {transcriptSessionId && (
+        <MiniTranscriptViewer sessionId={transcriptSessionId} onClose={() => setTranscriptSessionId(null)} />
+      )}
+      {logSessionId && (
+        <AgentLogViewer sessionId={logSessionId} onClose={() => setLogSessionId(null)} />
       )}
     </div>
   );

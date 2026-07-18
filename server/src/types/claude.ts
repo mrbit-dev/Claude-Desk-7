@@ -97,6 +97,35 @@ export interface DashboardAgentInfo {
   lastHeartbeat: number;
 }
 
+// === Unified Agent Types (for the new Agents page) ===
+
+export type AgentStatus = 'running' | 'completed' | 'error' | 'pending';
+
+export interface AgentActivity {
+  type: 'tool_use' | 'tool_result' | 'thinking' | 'message' | 'error' | 'file_write';
+  toolName?: string;
+  toolInput?: unknown;
+  thinking?: string;
+  summary?: string;
+  timestamp: string;
+}
+
+export interface AgentUnifiedNode {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
+  status: AgentStatus;
+  source: 'claude' | 'dashboard' | 'sub-agent';
+  sessionId: string;
+  pid?: number;
+  cwd?: string;
+  startedAt?: number;
+  progress: number;
+  activity: AgentActivity[];
+  children: AgentUnifiedNode[];
+}
+
 // === MCP Server Types ===
 
 export interface MCPServer {
@@ -284,7 +313,12 @@ export interface WSDashboardAgents {
   agents: DashboardAgentInfo[];
 }
 
-export type WSEvent = WSLaunchOutput | WSLaunchDone | WSLaunchError | WSAgentUpdate | WSAgentTreeUpdate | WSSettingsChanged | WSSessionEvent | WSChatOutput | WSChatDone | WSChatError | WSMCPLog | WSDashboardAgents;
+export interface WSAgentsSync {
+  type: 'agents:sync';
+  roots: AgentUnifiedNode[];
+}
+
+export type WSEvent = WSLaunchOutput | WSLaunchDone | WSLaunchError | WSAgentUpdate | WSAgentTreeUpdate | WSSettingsChanged | WSSessionEvent | WSChatOutput | WSChatDone | WSChatError | WSMCPLog | WSDashboardAgents | WSAgentsSync;
 
 export type WSClientMessage =
   | { type: 'subscribe:launch'; sessionId: string }

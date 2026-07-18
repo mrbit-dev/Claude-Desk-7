@@ -21,6 +21,7 @@ import launchRouter from './routes/launch.js';
 import agentsRouter from './routes/agents.js';
 import logsRouter from './routes/logs.js';
 import filesRouter from './routes/files.js';
+import chatRouter from './routes/chat.js';
 
 // WebSocket
 import { initWebSocketServer, broadcastEvent } from './websocket/handler.js';
@@ -57,6 +58,7 @@ app.use('/api/launch', launchRouter);
 app.use('/api/agents', agentsRouter);
 app.use('/api/logs', logsRouter);
 app.use('/api/files', filesRouter);
+app.use('/api/chat', chatRouter);
 
 // Health check
 app.get('/api/health', (_req, res) => {

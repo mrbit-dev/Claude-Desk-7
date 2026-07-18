@@ -1,6 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { readdirSync, existsSync, statSync } from 'fs';
+import { resolve } from 'path';
 import { join } from 'path';
+import { execFile } from 'child_process';
+import { platform } from 'os';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -78,5 +81,41 @@ function getParentPath(dirPath: string): string | null {
   if (parent.endsWith(':')) return parent + '\\'; // convert C: back to C:\
   return parent.replace(/\//g, '\\');
 }
+
+/**
+ * POST /api/files/open
+ * Mở file/folder trong Windows Explorer (hoặc Finder trên macOS, file manager trên Linux)
+ */
+router.post('/open', (req: Request, res: Response) => {
+  try {
+    const { path } = req.body;
+    if (!path || typeof path !== 'string') {
+      return res.status(400).json({ error: 'Path is required' });
+    }
+
+    const resolvedPath = resolve(path);
+    if (!existsSync(resolvedPath)) {
+      return res.status(404).json({ error: 'Path not found' });
+    }
+
+    const os = platform();
+    if (os === 'win32') {
+      // Windows: mở Explorer và highlight file/folder
+      execFile('explorer.exe', ['/select,', resolvedPath]);
+    } else if (os === 'darwin') {
+      // macOS: mở Finder
+      execFile('open', [resolvedPath]);
+    } else {
+      // Linux: mở file manager mặc định
+      execFile('xdg-open', [resolvedPath]);
+    }
+
+    logger.info({ path: resolvedPath }, 'Opened path in file manager');
+    res.json({ opened: true, path: resolvedPath });
+  } catch (error) {
+    logger.error({ error }, 'Failed to open path');
+    res.status(500).json({ error: 'Failed to open path' });
+  }
+});
 
 export default router;

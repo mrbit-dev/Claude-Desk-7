@@ -446,12 +446,43 @@ function AgentCard({ node, depth }: { node: AgentTreeNode; depth?: number }) {
   );
 }
 
+/* ─── Dashboard Agent Card ─── */
+
+function DashboardAgentCard({ agent }: { agent: any }) {
+  const statusColor = agent.status === 'running' ? 'bg-accent animate-pulse' : agent.status === 'error' ? 'bg-red-500' : 'bg-gray-500';
+  return (
+    <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 p-3">
+      <div className="flex items-start gap-3">
+        <div className="rounded-lg bg-claude-800 p-2">
+          <Bot className="h-4 w-4 text-blue-400" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-medium text-gray-200">{agent.name}</p>
+            <span className={`h-2 w-2 rounded-full ${statusColor}`} />
+            <span className="text-[10px] text-gray-500">{agent.status}</span>
+          </div>
+          {agent.description && (
+            <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2">{agent.description}</p>
+          )}
+          {agent.kind && (
+            <span className="text-[9px] text-gray-600 bg-claude-800/50 px-1 py-0.5 rounded mt-1 inline-block">
+              {agent.kind}
+            </span>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 /* ─── Main Page ─── */
 
 export default function Agents() {
   const { subscribe } = useWebSocket();
   const [view, setView] = useState<'flow' | 'tree' | 'list' | 'timeline'>('flow');
   const [liveTree, setLiveTree] = useState<AgentTreeNode[]>([]);
+  const [dashboardAgents, setDashboardAgents] = useState<any[]>([]);
   const [events, setEvents] = useState<ActivityEvent[]>([]);
   const [search, setSearch] = useState('');
   const [filterKind, setFilterKind] = useState<'all' | 'main' | 'sub'>('all');
@@ -462,9 +493,22 @@ export default function Agents() {
     refetchInterval: 15000,
   });
 
+  const { data: dashData } = useQuery<{claude: any[]; dashboard: any[]; total: number}>({
+    queryKey: ['agents', 'all'],
+    queryFn: () => api.get('/agents/all'),
+    refetchInterval: 3000,
+  });
+
   useEffect(() => {
     const unsub = subscribe('agent:tree-update', (event: any) => {
       if (event.tree) setLiveTree(event.tree);
+    });
+    return unsub;
+  }, [subscribe]);
+
+  useEffect(() => {
+    const unsub = subscribe('dashboard:agents', (event: any) => {
+      if (event.agents) setDashboardAgents(event.agents);
     });
     return unsub;
   }, [subscribe]);
@@ -479,6 +523,7 @@ export default function Agents() {
   }, [subscribe]);
 
   const treeData = liveTree.length > 0 ? liveTree : (initialAgents || []);
+  const dashAgents = dashboardAgents.length > 0 ? dashboardAgents : (dashData?.dashboard || []);
 
   // Search + filter
   const filtered = treeData
@@ -563,6 +608,25 @@ export default function Agents() {
           {totalSubs > 0 && <span className="flex items-center gap-1"><Layers className="h-3 w-3 text-accent/70" />{totalSubs} SUB</span>}
         </div>
       </div>
+
+      {/* Dashboard Agents Section */}
+      {dashAgents.length > 0 && (
+        <div className="rounded-xl border border-blue-800/30 bg-blue-900/10 p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+              <Bot className="h-3.5 w-3.5 text-blue-400" />
+              Dashboard Agents
+              <span className="text-[10px] text-gray-600 font-normal">({dashAgents.length})</span>
+            </h3>
+            <span className="text-[10px] text-gray-600">Tracked in real-time via API/WS</span>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
+            {dashAgents.map((agent: any) => (
+              <DashboardAgentCard key={agent.id} agent={agent} />
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Guide banner */}
       {view !== 'timeline' && (

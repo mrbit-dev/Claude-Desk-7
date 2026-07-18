@@ -53,3 +53,46 @@ export function useHealthCheck() {
     },
   });
 }
+
+// === MCP Tool hooks ===
+
+import type { MCPTool } from '../types/claude';
+import type { MCPToolListResponse, MCPToolCallResponse } from '../types/api';
+
+export function useMCPTools(name: string | null) {
+  return useQuery<MCPToolListResponse>({
+    queryKey: ['mcp-tools', name],
+    queryFn: () => api.get(`/mcp-servers/${encodeURIComponent(name!)}/tools`),
+    enabled: !!name,
+    staleTime: 60_000, // 1 min cache
+  });
+}
+
+export function useCallTool() {
+  return useMutation({
+    mutationFn: ({ serverName, toolName, args }: { serverName: string; toolName: string; args: Record<string, unknown> }) =>
+      api.post<MCPToolCallResponse>(`/mcp-servers/${encodeURIComponent(serverName)}/tools/${encodeURIComponent(toolName)}/call`, { args }),
+  });
+}
+
+// === MCP Log hooks ===
+
+export function useMCPLogs(name: string | null) {
+  return useQuery<{ serverName: string; logs: string[] }>({
+    queryKey: ['mcp-logs', name],
+    queryFn: () => api.get(`/mcp-servers/${encodeURIComponent(name!)}/logs`),
+    enabled: !!name,
+    refetchInterval: 3_000,
+  });
+}
+
+export function useClearMCPLogs() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) =>
+      api.delete(`/mcp-servers/${encodeURIComponent(name)}/logs`),
+    onSuccess: (_, name) => {
+      queryClient.invalidateQueries({ queryKey: ['mcp-logs', name] });
+    },
+  });
+}

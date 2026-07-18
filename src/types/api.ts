@@ -15,3 +15,40 @@ export interface HealthCheckResponse {
   alive: boolean;
   error?: string;
 }
+
+// === Chat API ===
+
+export interface CreateChatSessionRequest {
+  cwd?: string;
+  model?: string;
+  effort?: string;
+  initialPrompt?: string;
+}
+
+export interface CreateChatSessionResponse {
+  sessionId: string;
+  title: string;
+}
+
+export interface StartTurnRequest {
+  text: string;
+}
+
+export interface StartTurnResponse {
+  sessionId: string;
+  turnId: string;
+}
+
+// === MCP API ===
+
+export interface MCPToolListResponse {
+  serverName: string;
+  tools: import('./claude').MCPTool[];
+  cached: boolean;
+}
+
+export interface MCPToolCallResponse {
+  toolName: string;
+  result: unknown;
+  duration: number;
+}

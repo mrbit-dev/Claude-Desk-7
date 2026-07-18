@@ -111,6 +111,12 @@ export function broadcastEvent(event: WSEvent): void {
         }
         break;
 
+      case 'dashboard:agents':
+        if (state.subscriptions.has('agent:watch')) {
+          sendSafe(state.ws, event);
+        }
+        break;
+
       case 'settings:changed':
         sendSafe(state.ws, event);
         break;

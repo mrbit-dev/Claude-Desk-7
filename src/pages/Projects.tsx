@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { FolderOpen, Trash2, HardDrive, Terminal, FileText, Clock, Database, Activity } from 'lucide-react';
+import { FolderOpen, Trash2, HardDrive, Terminal, FileText, Clock, Database, Activity, GitBranch, GitCommitHorizontal } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { api } from '../api/client';
 import { ProjectSummary } from '../types/claude';
@@ -9,6 +9,42 @@ import { EmptyState } from '../components/shared/EmptyState';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { formatRelativeTime, formatBytes } from '../utils/format';
 import toast from 'react-hot-toast';
+
+function GitStatus({ slug }: { slug: string }) {
+  const { data: gitInfo, isLoading: gitLoading } = useQuery({
+    queryKey: ['project-git', slug],
+    queryFn: () => api.get<{
+      branch: string;
+      lastCommit: { hash: string; message: string; author: string; date: string };
+      status: { modified: string[]; added: string[]; deleted: string[] };
+    }>(`/projects/${slug}/git-info`),
+    retry: false,
+    staleTime: 30000,
+  });
+
+  if (gitLoading || !gitInfo) return null;
+
+  const modifiedCount = gitInfo.status.modified.length + gitInfo.status.added.length + gitInfo.status.deleted.length;
+  const commitMsg = gitInfo.lastCommit.message.length > 50
+    ? gitInfo.lastCommit.message.slice(0, 50) + '...'
+    : gitInfo.lastCommit.message;
+
+  return (
+    <div className="mt-3 space-y-1 text-xs">
+      <div className="flex items-center gap-1.5 text-gray-500">
+        <GitBranch className="h-3 w-3 text-accent" />
+        <span className="text-accent font-mono">{gitInfo.branch}</span>
+        {modifiedCount > 0 && (
+          <span className="ml-auto text-yellow-500">{modifiedCount} file{modifiedCount !== 1 ? 's' : ''} changed</span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 text-gray-600">
+        <GitCommitHorizontal className="h-3 w-3 text-gray-600" />
+        <span className="truncate">{commitMsg}</span>
+      </div>
+    </div>
+  );
+}
 
 export default function Projects() {
   const navigate = useNavigate();
@@ -159,6 +195,9 @@ export default function Projects() {
                   <p className="text-xs text-gray-600">gần nhất</p>
                 </div>
               </div>
+
+              {/* Git status */}
+              <GitStatus slug={project.slug} />
 
               <div className="mt-4 flex justify-end">
                 <button

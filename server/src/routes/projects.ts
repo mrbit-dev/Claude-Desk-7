@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getAllProjects, getProjectDetail, purgeProject } from '../services/project-store.js';
+import { getGitInfo } from '../services/git-service.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -12,6 +13,18 @@ router.get('/', (_req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Failed to list projects');
     res.status(500).json({ error: 'Failed to list projects' });
+  }
+});
+
+// GET /api/projects/:slug/git-info
+router.get('/:slug/git-info', (req: Request, res: Response) => {
+  try {
+    const gitInfo = getGitInfo(req.params.slug);
+    if (!gitInfo) return res.status(404).json({ error: 'Git info not available' });
+    res.json(gitInfo);
+  } catch (error) {
+    logger.error({ error }, 'Failed to get git info');
+    res.status(500).json({ error: 'Failed to get git info' });
   }
 });
 

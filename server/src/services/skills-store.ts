@@ -1,5 +1,4 @@
-import { existsSync, mkdirSync, writeFileSync } from 'fs';
-import { readdirSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, readFileSync, readdirSync } from 'fs';
 import { join } from 'path';
 import { config } from '../config.js';
 import { readSettings, writeSettings } from './settings-store.js';
@@ -113,4 +112,38 @@ export function createSkill(input: CreateSkillInput): SkillInfo {
     hasClaudeMd: true,
     model,
   };
+}
+
+/**
+ * Read the SKILL.md content for a specific skill
+ */
+export function getSkillContent(name: string): string | null {
+  const skillDir = join(config.claudeSkillsDir, name);
+  const skillMdPath = join(skillDir, 'SKILL.md');
+
+  try {
+    if (!existsSync(skillMdPath)) return null;
+    return readFileSync(skillMdPath, 'utf-8');
+  } catch (error) {
+    logger.error({ error, name }, 'Failed to read SKILL.md');
+    return null;
+  }
+}
+
+/**
+ * Write content to a skill's SKILL.md file
+ */
+export function updateSkillContent(name: string, content: string): boolean {
+  const skillDir = join(config.claudeSkillsDir, name);
+
+  try {
+    if (!existsSync(skillDir)) return false;
+    mkdirSync(skillDir, { recursive: true });
+    writeFileSync(join(skillDir, 'SKILL.md'), content, 'utf-8');
+    logger.info({ name }, 'SKILL.md updated');
+    return true;
+  } catch (error) {
+    logger.error({ error, name }, 'Failed to update SKILL.md');
+    return false;
+  }
 }

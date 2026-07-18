@@ -1,5 +1,6 @@
 import { spawn } from 'child_process';
 import { readSettings, writeSettings, mergeSettings } from './settings-store.js';
+import { config as appConfig } from '../config.js';
 import { MCPServerWithName } from '../types/claude.js';
 
 /**
@@ -17,6 +18,7 @@ export function getAllMCPServers(): MCPServerWithName[] {
         args: config.args || [],
         env: config.env,
         status: 'unknown',
+        settingsPath: appConfig.claudeSettingsFile,
       });
     }
   }

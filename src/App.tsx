@@ -49,6 +49,7 @@ function AnimatedRoutes() {
         <Route path="/agents" element={<PageTransition><Agents /></PageTransition>} />
         <Route path="/search" element={<PageTransition><SearchPage /></PageTransition>} />
         <Route path="/logs" element={<PageTransition><Logs /></PageTransition>} />
+        <Route path="/chat" element={<PageTransition><ChatPage /></PageTransition>} />
         <Route path="/auth" element={<PageTransition><Auth /></PageTransition>} />
         <Route path="*" element={<PageTransition><NotFound /></PageTransition>} />
       </Routes>
@@ -70,7 +71,8 @@ import TerminalPage from './pages/Terminal';
 import Agents from './pages/Agents';
 import Logs from './pages/Logs';
 import SearchPage from './pages/Search';
-import NotFound from './pages/NotFound';
+import ChatPage from './pages/Chat';
+import NotFound from './pages/NotFound'; // keep
 
 const queryClient = new QueryClient({
   defaultOptions: {

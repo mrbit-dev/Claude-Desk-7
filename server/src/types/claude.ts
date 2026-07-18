@@ -80,6 +80,23 @@ export interface SubAgentMeta {
   spawnDepth?: number;
 }
 
+// === Dashboard Agent Types (for tracking spawned sub-agents) ===
+
+export type DashboardAgentStatus = 'running' | 'completed' | 'error';
+
+export interface DashboardAgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  kind: string;
+  status: DashboardAgentStatus;
+  command?: string;
+  detail?: string;
+  parentId?: string;
+  registeredAt: number;
+  lastHeartbeat: number;
+}
+
 // === MCP Server Types ===
 
 export interface MCPServer {
@@ -92,6 +109,7 @@ export interface MCPServerWithName extends MCPServer {
   name: string;
   status?: 'unknown' | 'alive' | 'error';
   error?: string;
+  settingsPath?: string;
 }
 
 // === Settings Types ===
@@ -133,6 +151,40 @@ export interface ProjectSummary {
   totalSize: number;
   lastActivity: number;
   sessions: string[];
+}
+
+// === Chat Types ===
+
+export interface ChatSession {
+  sessionId: string;
+  title: string;
+  slug: string;
+  turns: ChatTurn[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ChatTurn {
+  turnId: string;
+  prompt: string;
+  startedAt: number;
+  completedAt?: number;
+  transcriptPath?: string;
+  exitCode?: number | null;
+  tokenUsage?: Usage;
+}
+
+// === MCP Tool Types ===
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
+}
+
+export interface MCPToolCallRequest {
+  toolName: string;
+  args: Record<string, unknown>;
 }
 
 // === Dashboard Types ===
@@ -191,11 +243,55 @@ export interface WSSessionEvent {
   sessionId: string;
 }
 
-export type WSEvent = WSLaunchOutput | WSLaunchDone | WSLaunchError | WSAgentUpdate | WSAgentTreeUpdate | WSSettingsChanged | WSSessionEvent;
+// === Chat WS Events ===
+
+export interface WSChatOutput {
+  type: 'chat:output';
+  sessionId: string;
+  turnId: string;
+  line: TranscriptLine;
+}
+
+export interface WSChatDone {
+  type: 'chat:done';
+  sessionId: string;
+  turnId: string;
+  exitCode: number | null;
+  duration?: number;
+  tokenUsage?: Usage;
+}
+
+export interface WSChatError {
+  type: 'chat:error';
+  sessionId: string;
+  turnId: string;
+  error: string;
+}
+
+// === MCP WS Events ===
+
+export interface WSMCPLog {
+  type: 'mcp:log';
+  serverName: string;
+  text: string;
+  stream: 'stdout' | 'stderr';
+}
+
+// === Dashboard Agent WS Events ===
+
+export interface WSDashboardAgents {
+  type: 'dashboard:agents';
+  agents: DashboardAgentInfo[];
+}
+
+export type WSEvent = WSLaunchOutput | WSLaunchDone | WSLaunchError | WSAgentUpdate | WSAgentTreeUpdate | WSSettingsChanged | WSSessionEvent | WSChatOutput | WSChatDone | WSChatError | WSMCPLog | WSDashboardAgents;
 
 export type WSClientMessage =
   | { type: 'subscribe:launch'; sessionId: string }
   | { type: 'subscribe:agent-watch' }
   | { type: 'subscribe:logs' }
+  | { type: 'subscribe:mcp-logs'; serverName: string }
   | { type: 'launch:input'; sessionId: string; text: string }
-  | { type: 'launch:cancel'; sessionId: string };
+  | { type: 'launch:cancel'; sessionId: string }
+  | { type: 'chat:input'; sessionId: string; turnId: string; text: string }
+  | { type: 'chat:cancel'; sessionId: string; turnId: string };

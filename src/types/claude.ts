@@ -29,6 +29,35 @@ export interface MCPServerWithName extends MCPServer {
   name: string;
   status?: 'unknown' | 'alive' | 'error';
   error?: string;
+  settingsPath?: string;
+}
+
+// === Chat Types ===
+
+export interface ChatSession {
+  sessionId: string;
+  title: string;
+  slug: string;
+  turns: ChatTurn[];
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface ChatTurn {
+  turnId: string;
+  prompt: string;
+  startedAt: number;
+  completedAt?: number;
+  transcriptPath?: string;
+  exitCode?: number | null;
+}
+
+// === MCP Tool Types ===
+
+export interface MCPTool {
+  name: string;
+  description?: string;
+  inputSchema?: Record<string, unknown>;
 }
 
 export interface ProjectSummary {

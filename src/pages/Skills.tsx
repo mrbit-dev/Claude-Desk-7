@@ -1,11 +1,158 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, FileText, Plus, Loader2, X, Check } from 'lucide-react';
+import { BookOpen, FileText, Plus, Loader2, X, Check, FolderOpen, FileEdit } from 'lucide-react';
 import { api } from '../api/client';
 import { SkillInfo } from '../types/claude';
 import { LoadingSpinner } from '../components/shared/LoadingSpinner';
 import { EmptyState } from '../components/shared/EmptyState';
 import toast from 'react-hot-toast';
 import { useState } from 'react';
+
+function SkillCard({ skill }: { skill: SkillInfo }) {
+  const [expanded, setExpanded] = useState(false);
+  const [content, setContent] = useState('');
+  const [dirty, setDirty] = useState(false);
+  const queryClient = useQueryClient();
+
+  const { data: contentData, isFetching: loadingContent } = useQuery<{ name: string; content: string }>({
+    queryKey: ['skill-content', skill.name],
+    queryFn: () => api.get(`/skills/${skill.name}/content`),
+    enabled: expanded,
+    staleTime: 60000,
+  });
+
+  const updateMutation = useMutation({
+    mutationFn: (newContent: string) =>
+      api.put(`/skills/${skill.name}/content`, { content: newContent }),
+    onSuccess: () => {
+      toast.success(`SKILL.md của /${skill.name} đã lưu`);
+      setDirty(false);
+      queryClient.invalidateQueries({ queryKey: ['skill-content', skill.name] });
+    },
+    onError: (err: any) => toast.error(err?.message || 'Lưu thất bại'),
+  });
+
+  const handleExpand = () => {
+    if (!expanded) {
+      setExpanded(true);
+    }
+  };
+
+  const handleSave = () => {
+    updateMutation.mutate(content);
+  };
+
+  const handleCancel = () => {
+    setContent(contentData?.content || '');
+    setDirty(false);
+    setExpanded(false);
+  };
+
+  // Sync content when data arrives
+  if (contentData && !dirty && content !== contentData.content) {
+    setContent(contentData.content);
+  }
+
+  return (
+    <div className="rounded-xl border border-claude-800 bg-claude-900 transition-colors hover:border-claude-700">
+      <div
+        className="p-4 cursor-pointer"
+        onClick={handleExpand}
+      >
+        <div className="flex items-start gap-3">
+          <div className="rounded-lg bg-claude-800 p-2">
+            <BookOpen className="h-4 w-4 text-accent" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium text-gray-200">/{skill.name}</p>
+            <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{skill.description}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
+          {skill.hasSkillMd && (
+            <span className="flex items-center gap-1">
+              <FileText className="h-3 w-3" /> SKILL.md
+            </span>
+          )}
+          {skill.hasClaudeMd && (
+            <span className="flex items-center gap-1">
+              <FileText className="h-3 w-3" /> CLAUDE.md
+            </span>
+          )}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              api.post('/files/open', { path: skill.path })
+                .then(() => toast.success('Đã mở thư mục skill'))
+                .catch(() => toast.error('Không thể mở thư mục'));
+            }}
+            className="flex items-center gap-1 text-gray-500 hover:text-accent transition-colors"
+            title="Mở thư mục skill"
+          >
+            <FolderOpen className="h-3 w-3" />
+            Open folder
+          </button>
+        </div>
+      </div>
+
+      {/* Expanded editor */}
+      {expanded && (
+        <div className="border-t border-claude-800 p-4 space-y-3" onClick={(e) => e.stopPropagation()}>
+          <div className="flex items-center justify-between">
+            <h4 className="text-xs font-medium text-gray-400 flex items-center gap-1.5">
+              <FileEdit className="h-3.5 w-3.5" />
+              SKILL.md
+            </h4>
+            {loadingContent && <Loader2 className="h-3.5 w-3.5 animate-spin text-gray-500" />}
+          </div>
+
+          {loadingContent ? (
+            <div className="flex items-center justify-center py-8">
+              <LoadingSpinner />
+            </div>
+          ) : (
+            <>
+              <textarea
+                value={content}
+                onChange={(e) => {
+                  setContent(e.target.value);
+                  setDirty(true);
+                }}
+                className="w-full h-64 rounded-lg border border-claude-700 bg-claude-950 px-3 py-2 text-xs text-gray-300 font-mono placeholder-gray-600 focus:border-accent focus:outline-none resize-y"
+                spellCheck={false}
+              />
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-600">
+                  {content.length} ký tự
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCancel}
+                    className="flex items-center gap-1 rounded-lg border border-claude-700 px-3 py-1.5 text-xs text-gray-500 hover:bg-claude-800 transition-colors"
+                  >
+                    <X className="h-3 w-3" />
+                    Cancel
+                  </button>
+                  <button
+                    onClick={handleSave}
+                    disabled={!dirty || updateMutation.isPending}
+                    className="flex items-center gap-1 rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white hover:bg-accent-dark disabled:opacity-50 transition-colors"
+                  >
+                    {updateMutation.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Check className="h-3 w-3" />
+                    )}
+                    Save
+                  </button>
+                </div>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function Skills() {
   const queryClient = useQueryClient();
@@ -63,7 +210,7 @@ export default function Skills() {
         <p className="text-xs text-gray-400 leading-relaxed">
           🧠 Skill là lệnh slash <code className="text-accent">/tên</code> trong Claude Code để thực hiện tác vụ cụ thể.
           Mỗi skill là thư mục trong <code className="text-accent">~/.claude/skills/</code> chứa file <code className="text-gray-500">SKILL.md</code>.
-          Bấm <strong className="text-gray-300">Tạo Skill</strong> để tạo mới ngay từ dashboard.
+          Bấm <strong className="text-gray-300">Tạo Skill</strong> để tạo mới ngay từ dashboard. Bấm vào card để chỉnh sửa nội dung SKILL.md.
         </p>
       </div>
 
@@ -155,29 +302,7 @@ export default function Skills() {
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {skills.map((skill) => (
-            <div key={skill.name} className="rounded-xl border border-claude-800 bg-claude-900 p-4">
-              <div className="flex items-start gap-3">
-                <div className="rounded-lg bg-claude-800 p-2">
-                  <BookOpen className="h-4 w-4 text-accent" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium text-gray-200">/{skill.name}</p>
-                  <p className="mt-0.5 text-xs text-gray-500 line-clamp-2">{skill.description}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex flex-wrap items-center gap-3 text-xs text-gray-600">
-                {skill.hasSkillMd && (
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" /> SKILL.md
-                  </span>
-                )}
-                {skill.hasClaudeMd && (
-                  <span className="flex items-center gap-1">
-                    <FileText className="h-3 w-3" /> CLAUDE.md
-                  </span>
-                )}
-              </div>
-            </div>
+            <SkillCard key={skill.name} skill={skill} />
           ))}
         </div>
       )}

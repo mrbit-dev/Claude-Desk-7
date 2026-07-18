@@ -7,6 +7,7 @@ import {
   deleteMCPServer,
   healthCheckMCPServer,
 } from '../services/mcp-store.js';
+import { discoverTools, callTool, getMCPLogs, clearMCPLogs } from '../services/mcp-tools.js';
 import { MCPServerWithName } from '../types/claude.js';
 import { logger } from '../utils/logger.js';
 
@@ -83,6 +84,51 @@ router.post('/:name/health-check', async (req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Health check failed');
     res.status(500).json({ error: 'Health check failed' });
+  }
+});
+
+// GET /api/mcp-servers/:name/tools — discover tools from MCP server
+router.get('/:name/tools', async (req: Request, res: Response) => {
+  try {
+    const { tools, cached } = await discoverTools(req.params.name);
+    res.json({ serverName: req.params.name, tools, cached });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to discover MCP tools');
+    res.status(500).json({ error: error.message || 'Failed to discover tools' });
+  }
+});
+
+// POST /api/mcp-servers/:name/tools/:toolName/call — call a tool (playground)
+router.post('/:name/tools/:toolName/call', async (req: Request, res: Response) => {
+  try {
+    const { args } = req.body || {};
+    const result = await callTool(req.params.name, req.params.toolName, args || {});
+    res.json({ toolName: req.params.toolName, ...result });
+  } catch (error: any) {
+    logger.error({ error: error.message }, 'Failed to call MCP tool');
+    res.status(500).json({ error: error.message || 'Failed to call tool' });
+  }
+});
+
+// GET /api/mcp-servers/:name/logs — get recent MCP logs
+router.get('/:name/logs', (req: Request, res: Response) => {
+  try {
+    const logs = getMCPLogs(req.params.name);
+    res.json({ serverName: req.params.name, logs });
+  } catch (error) {
+    logger.error({ error }, 'Failed to get MCP logs');
+    res.status(500).json({ error: 'Failed to get MCP logs' });
+  }
+});
+
+// DELETE /api/mcp-servers/:name/logs — clear MCP logs
+router.delete('/:name/logs', (req: Request, res: Response) => {
+  try {
+    clearMCPLogs(req.params.name);
+    res.json({ cleared: true });
+  } catch (error) {
+    logger.error({ error }, 'Failed to clear MCP logs');
+    res.status(500).json({ error: 'Failed to clear MCP logs' });
   }
 });
 

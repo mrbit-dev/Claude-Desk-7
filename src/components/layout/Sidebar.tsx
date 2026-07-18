@@ -17,12 +17,14 @@ import {
   PanelLeft,
   ChevronLeft,
   X,
+  MessageSquare,
 } from 'lucide-react';
 import { useUIStore } from '../../store/uiStore';
 import clsx from 'clsx';
 
 const navItems = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/chat', label: 'Chat', icon: MessageSquare },
   { to: '/sessions', label: 'Sessions', icon: PlayCircle },
   { to: '/search', label: 'Search', icon: Search },
   { to: '/launch', label: 'Launch', icon: Rocket },

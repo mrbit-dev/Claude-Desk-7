@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { getAllSkills, getSkill, createSkill } from '../services/skills-store.js';
+import { getAllSkills, getSkill, createSkill, getSkillContent, updateSkillContent } from '../services/skills-store.js';
 import { logger } from '../utils/logger.js';
 
 const router = Router();
@@ -12,6 +12,34 @@ router.get('/', (_req: Request, res: Response) => {
   } catch (error) {
     logger.error({ error }, 'Failed to list skills');
     res.status(500).json({ error: 'Failed to list skills' });
+  }
+});
+
+// GET /api/skills/:name/content
+router.get('/:name/content', (req: Request, res: Response) => {
+  try {
+    const content = getSkillContent(req.params.name);
+    if (content === null) return res.status(404).json({ error: 'Skill or SKILL.md not found' });
+    res.json({ name: req.params.name, content });
+  } catch (error) {
+    logger.error({ error }, 'Failed to get skill content');
+    res.status(500).json({ error: 'Failed to get skill content' });
+  }
+});
+
+// PUT /api/skills/:name/content
+router.put('/:name/content', (req: Request, res: Response) => {
+  try {
+    const { content } = req.body;
+    if (typeof content !== 'string') {
+      return res.status(400).json({ error: 'Content is required as a string' });
+    }
+    const success = updateSkillContent(req.params.name, content);
+    if (!success) return res.status(404).json({ error: 'Skill not found' });
+    res.json({ name: req.params.name, content });
+  } catch (error) {
+    logger.error({ error }, 'Failed to update skill content');
+    res.status(500).json({ error: 'Failed to update skill content' });
   }
 });
 

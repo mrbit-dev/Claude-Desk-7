@@ -1,10 +1,11 @@
 import { useState } from 'react';
-import { Server, Plus, Activity, Edit3, Trash2, X, Check } from 'lucide-react';
-import { useMCPs, useAddMCPServer, useUpdateMCPServer, useDeleteMCPServer, useHealthCheck } from '../hooks/useMCPs';
+import { Server, Plus, Activity, Edit3, Trash2, X, Check, FolderOpen, Wrench, ChevronDown, ChevronRight, Terminal, Loader2 } from 'lucide-react';
+import { useMCPs, useAddMCPServer, useUpdateMCPServer, useDeleteMCPServer, useHealthCheck, useMCPTools, useCallTool, useMCPLogs, useClearMCPLogs } from '../hooks/useMCPs';
 import { MCPServerCardSkeleton } from '../components/shared/Skeleton';
 import { EmptyState } from '../components/shared/EmptyState';
 import { ConfirmDialog } from '../components/shared/ConfirmDialog';
 import { MCPServerWithName } from '../types/claude';
+import { api } from '../api/client';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 
@@ -272,6 +273,28 @@ function ServerCard({
 }: ServerCardProps) {
   const [editCommand, setEditCommand] = useState(server.command);
   const [editArgs, setEditArgs] = useState(server.args.join(' '));
+  const [showTools, setShowTools] = useState(false);
+  const [showLogs, setShowLogs] = useState(false);
+  const [playgroundTool, setPlaygroundTool] = useState<string | null>(null);
+  const [playgroundArgs, setPlaygroundArgs] = useState('{}');
+  const [playgroundResult, setPlaygroundResult] = useState<string | null>(null);
+
+  const { data: toolsData, isLoading: toolsLoading, refetch: refetchTools } = useMCPTools(showTools ? server.name : null);
+  const { data: logsData, isLoading: logsLoading } = useMCPLogs(showLogs ? server.name : null);
+  const callTool = useCallTool();
+  const clearLogs = useClearMCPLogs();
+
+  const handleCallTool = async () => {
+    if (!playgroundTool) return;
+    setPlaygroundResult(null);
+    try {
+      const args = JSON.parse(playgroundArgs || '{}');
+      const result = await callTool.mutateAsync({ serverName: server.name, toolName: playgroundTool, args });
+      setPlaygroundResult(JSON.stringify(result.result, null, 2));
+    } catch (err: any) {
+      setPlaygroundResult(`Error: ${err.message}`);
+    }
+  };
 
   if (isEditing) {
     return (
@@ -312,7 +335,8 @@ function ServerCard({
   }
 
   return (
-    <div className="card-hover rounded-xl border border-claude-800 bg-claude-900 p-4">
+    <div className="card-hover rounded-xl border border-claude-800 bg-claude-900 p-4 space-y-3">
+      {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="rounded-lg bg-claude-800 p-2">
@@ -335,28 +359,149 @@ function ServerCard({
         />
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
-        <button
-          onClick={onHealthCheck}
-          disabled={isChecking}
-          className="flex items-center gap-1.5 rounded-lg border border-claude-700 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-claude-800 hover:text-gray-300 disabled:opacity-50"
-        >
+      {/* Action buttons */}
+      <div className="flex items-center gap-2">
+        <button onClick={onHealthCheck} disabled={isChecking} className="flex items-center gap-1.5 rounded-lg border border-claude-700 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-claude-800 hover:text-gray-300 disabled:opacity-50">
           <Activity className="h-3.5 w-3.5" />
-          {isChecking ? 'Checking...' : 'Health check'}
+          {isChecking ? 'Checking...' : 'Health'}
         </button>
-        <button
-          onClick={onEdit}
-          className="rounded-lg border border-claude-700 p-1.5 text-gray-500 transition-colors hover:bg-claude-800 hover:text-gray-300"
-        >
+        <button onClick={() => { setShowTools(!showTools); if (!showTools) setShowLogs(false); }}
+          className={clsx('rounded-lg border p-1.5 transition-colors', showTools ? 'bg-accent/15 text-accent border-accent/30' : 'border-claude-700 text-gray-500 hover:bg-claude-800 hover:text-gray-300')}
+          title="Tools">
+          <Wrench className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={() => { setShowLogs(!showLogs); if (!showLogs) setShowTools(false); }}
+          className={clsx('rounded-lg border p-1.5 transition-colors', showLogs ? 'bg-accent/15 text-accent border-accent/30' : 'border-claude-700 text-gray-500 hover:bg-claude-800 hover:text-gray-300')}
+          title="Logs">
+          <Terminal className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onEdit} className="rounded-lg border border-claude-700 p-1.5 text-gray-500 transition-colors hover:bg-claude-800 hover:text-gray-300" title="Edit">
           <Edit3 className="h-3.5 w-3.5" />
         </button>
-        <button
-          onClick={onDelete}
-          className="rounded-lg border border-claude-700 p-1.5 text-gray-500 transition-colors hover:bg-red-900/30 hover:text-red-400"
-        >
+        <button onClick={() => { api.post('/files/open', { path: server.settingsPath }).then(() => toast.success('Đã mở thư mục settings')).catch(() => toast.error('Không thể mở thư mục')); }}
+          className="rounded-lg border border-claude-700 p-1.5 text-gray-500 transition-colors hover:bg-claude-800 hover:text-gray-300" title="Open settings">
+          <FolderOpen className="h-3.5 w-3.5" />
+        </button>
+        <button onClick={onDelete} className="rounded-lg border border-claude-700 p-1.5 text-gray-500 transition-colors hover:bg-red-900/30 hover:text-red-400">
           <Trash2 className="h-3.5 w-3.5" />
         </button>
       </div>
+
+      {/* Tools panel */}
+      {showTools && (
+        <div className="rounded-lg border border-claude-700 bg-claude-950 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-400">Tools</p>
+            <button onClick={() => refetchTools()} className="text-[10px] text-accent hover:text-accent-light" disabled={toolsLoading}>
+              {toolsLoading ? 'Loading...' : 'Refresh'}
+            </button>
+          </div>
+
+          {toolsLoading && (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
+            </div>
+          )}
+
+          {toolsData?.tools && toolsData.tools.length > 0 ? (
+            <div className="space-y-2 max-h-48 overflow-y-auto">
+              {toolsData.tools.map((tool: MCPTool) => (
+                <details key={tool.name} className="rounded-lg border border-claude-800 bg-claude-900/50">
+                  <summary className="flex items-center gap-1.5 px-2 py-1.5 text-[11px] text-gray-300 cursor-pointer hover:text-gray-200 transition-colors">
+                    <ChevronRight className="h-3 w-3" />
+                    <Wrench className="h-3 w-3 text-yellow-500" />
+                    <span className="font-medium">{tool.name}</span>
+                  </summary>
+                  <div className="px-2 pb-2 space-y-1.5 border-t border-claude-800 pt-1.5">
+                    {tool.description && (
+                      <p className="text-[10px] text-gray-500">{tool.description}</p>
+                    )}
+                    {tool.inputSchema && (
+                      <pre className="text-[10px] text-gray-600 font-mono overflow-x-auto whitespace-pre-wrap">
+                        {JSON.stringify(tool.inputSchema, null, 2)}
+                      </pre>
+                    )}
+                    <button
+                      onClick={() => {
+                        setPlaygroundTool(tool.name);
+                        setPlaygroundArgs(JSON.stringify(tool.inputSchema?.properties ?
+                          Object.fromEntries(Object.entries((tool.inputSchema as any).properties || {}).map(([k, v]) => [k, (v as any).default || '']))
+                          : {}, null, 2));
+                        setPlaygroundResult(null);
+                      }}
+                      className="text-[10px] text-accent hover:text-accent-light transition-colors"
+                    >
+                      ▶ Try it
+                    </button>
+                  </div>
+                </details>
+              ))}
+            </div>
+          ) : !toolsLoading && (
+            <p className="text-[10px] text-gray-600 py-2 text-center">No tools discovered or server may not support tool discovery</p>
+          )}
+
+          {/* Tool playground */}
+          {playgroundTool && (
+            <div className="rounded-lg border border-blue-800/30 bg-blue-900/10 p-2 space-y-1.5">
+              <p className="text-[10px] font-medium text-blue-400">Playground: {server.name} → {playgroundTool}</p>
+              <textarea
+                value={playgroundArgs}
+                onChange={(e) => setPlaygroundArgs(e.target.value)}
+                className="w-full rounded border border-claude-700 bg-claude-950 px-2 py-1 text-[10px] text-gray-300 font-mono focus:border-accent focus:outline-none"
+                rows={3}
+                placeholder='{"key": "value"}'
+              />
+              <div className="flex gap-2">
+                <button onClick={handleCallTool} disabled={callTool.isPending}
+                  className="rounded bg-accent px-2 py-1 text-[10px] text-white hover:bg-accent-dark disabled:opacity-50 transition-colors">
+                  {callTool.isPending ? 'Calling...' : 'Execute'}
+                </button>
+                <button onClick={() => setPlaygroundTool(null)}
+                  className="rounded border border-claude-700 px-2 py-1 text-[10px] text-gray-500 hover:text-gray-300 transition-colors">
+                  Close
+                </button>
+              </div>
+              {callTool.isPending && <Loader2 className="h-3 w-3 text-accent animate-spin" />}
+              {playgroundResult && (
+                <pre className="rounded bg-claude-950 p-2 text-[10px] text-gray-400 font-mono overflow-x-auto max-h-32 overflow-y-auto whitespace-pre-wrap">
+                  {playgroundResult}
+                </pre>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Logs panel */}
+      {showLogs && (
+        <div className="rounded-lg border border-claude-700 bg-claude-950 p-3 space-y-2">
+          <div className="flex items-center justify-between">
+            <p className="text-xs font-medium text-gray-400">Logs</p>
+            <button onClick={() => clearLogs.mutate(server.name)}
+              className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors">
+              Clear
+            </button>
+          </div>
+          {logsLoading ? (
+            <div className="flex items-center justify-center py-4">
+              <Loader2 className="h-4 w-4 text-gray-500 animate-spin" />
+            </div>
+          ) : logsData?.logs && logsData.logs.length > 0 ? (
+            <div className="max-h-32 overflow-y-auto space-y-0.5 font-mono text-[10px]">
+              {logsData.logs.map((line: string, i: number) => (
+                <p key={i} className={clsx(
+                  line.startsWith('[stderr]') ? 'text-yellow-500/70' : 'text-gray-500'
+                )}>
+                  {line}
+                </p>
+              ))}
+            </div>
+          ) : (
+            <p className="text-[10px] text-gray-600 py-2 text-center">No logs yet. Run health check or discover tools to see output.</p>
+          )}
+        </div>
+      )}
     </div>
   );
 }

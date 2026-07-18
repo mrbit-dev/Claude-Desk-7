@@ -10,6 +10,7 @@ import { formatRelativeTime } from '../utils/format';
 import { api } from '../api/client';
 import { useState } from 'react';
 import clsx from 'clsx';
+import { TokenUsageChart, TokenUsageData } from '../components/dashboard/TokenUsageChart';
 
 interface ChartData {
   days: { date: string; sessions: number; agents: number }[];
@@ -54,6 +55,11 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [searching, setSearching] = useState(false);
+  const { data: tokenData, isPending: tokenPending } = useQuery<TokenUsageData>({
+    queryKey: ['dashboard', 'token-usage'],
+    queryFn: () => api.get('/dashboard/token-usage?range=all'),
+    staleTime: 60000,
+  });
 
   if (error && !summary) {
     return (
@@ -216,6 +222,15 @@ export default function Dashboard() {
           </div>
         </div>
       </div>
+
+      {/* Token Usage */}
+      <TokenUsageChart
+        data={tokenData?.daily || []}
+        totals={tokenData?.totals || { inputTokens: 0, outputTokens: 0, cacheCreationTokens: 0, cacheReadTokens: 0, sessions: 0 }}
+        byModel={tokenData?.byModel || []}
+        estimatedCost={tokenData?.estimatedCost || 0}
+        isPending={tokenPending}
+      />
 
       {/* Recent Sessions */}
       <div className="rounded-xl border border-claude-800 bg-claude-900 p-5">
